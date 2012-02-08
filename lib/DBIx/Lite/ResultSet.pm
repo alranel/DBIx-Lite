@@ -50,7 +50,7 @@ for my $methname (qw(group_by having order_by limit offset rows_per_page page)) 
 
 sub _clone {
     my $self = shift;
-    (ref $self)->new(
+    (ref $self)->_new(
         map { $_ => /^(?:dbix_lite|table|cur_table)$/ ? $self->{$_} : clone($self->{$_}) }
             grep !/^(?:sth)$/, keys %$self,
     );
