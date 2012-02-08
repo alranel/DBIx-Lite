@@ -127,28 +127,28 @@ related tables (see docs for L<DBIx::Lite::Schema>).
     my $book = $dbix->table('books')->find({ id => 10 });
     print $book->title;
 
-=method hashref
+=head2 hashref
 
 This method returns a hashref containing column values.
 
     my $hashref = $book->hashref;
     print "$_ = $hashref->{$_}\n" for keys %$hashref;
 
-=method update
+=head2 update
 
 This method is only available if you specified a primary key for the table
 (see docs for L<DBIx::Lite::Schema>).
 
 It accepts a hashref of column values and it will perform a SQL C<UPDATE> command.
 
-=method delete
+=head2 delete
 
 This method is only available if you specified a primary key for the table
 (see docs for L<DBIx::Lite::Schema>).
 
 It will perform a SQL C<DELETE> command.
 
-=method insert_related
+=head2 insert_related
 
 This method is only available if you specified a primary key for the table
 (see docs for L<DBIx::Lite::Schema>).

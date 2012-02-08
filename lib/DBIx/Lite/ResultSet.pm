@@ -456,7 +456,7 @@ and then you can chain methods on it to build your query:
 
 =head1 BUILDING THE QUERY
 
-=method search
+=head2 search
 
 This method accepts a search condition using the L<SQL::Abstract> syntax and 
 returns a L<DBIx::Lite::ResultSet> object with the condition applied.
@@ -468,7 +468,7 @@ C<AND> operator:
 
     my $rs = $books_rs->search({ year => 2012 })->search({ genre => 'philosophy' });
 
-=method select
+=head2 select
 
 This method accepts a list of column names to retrieve. The default is C<*>, so
 all columns will be retrieved. It returns a L<DBIx::Lite::ResultSet> object to 
@@ -476,7 +476,12 @@ allow for further method chaining.
 
     my $rs = $books_rs->select('title', 'year');
 
-=method select_also
+If you want to rename a column, pass it as an arrayref:
+
+    my $rs = $books_rs->select(['title' => 'book_title'], 'year');
+    # SELECT title AS book_title, year FROM books ...
+
+=head2 select_also
 
 This method works like L<select> but it adds the passed columns to the ones already
 selected. It is useful when joining:
@@ -485,18 +490,18 @@ selected. It is useful when joining:
         ->left_join('authors', { author_id => 'id' })
         ->select_also(['authors.name' => 'author_name']);
 
-=method order_by
+=head2 order_by
 
 This method accepts a list of columns for sorting. It returns a L<DBIx::Lite::ResultSet>
 object to allow for further method chaining.
 Columns can be prefixed with C<+> or C<-> to indicate sorting direction (C<+> is C<ASC>,
 C<-> is C<DESC>) or they can be expressed using the L<SQL::Abstract> syntax
-(C<{-asc => $column_name}>).
+(C<<{-asc => $column_name}>>).
 
     my $rs = $books_rs->order_by('year');
     my $rs = $books_rs->order_by('+genre', '-year');
 
-=method group_by
+=head2 group_by
 
 This method accepts a list of columns to insert in the SQL C<GROUP BY> clause.
 It returns a L<DBIx::Lite::ResultSet> object to allow for further method chaining.
@@ -506,7 +511,7 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
         ->select('genre', \ 'COUNT(*)')
         ->group_by('genre');
 
-=method having
+=head2 having
 
 This method accepts a search condition to insert in the SQL C<HAVING> clause
 (in combination with L<group_by>).
@@ -518,7 +523,7 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
         ->group_by('genre')
         ->having({ year => 2012 });
 
-=method limit
+=head2 limit
 
 This method accepts a number of rows to insert in the SQL C<LIMIT> clause (or whatever
 your RDBMS dialect uses for that purpose). See the L<page> method too if you want an
@@ -527,7 +532,7 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
 
     my $rs = $books_rs->limit(5);
 
-=method offset
+=head2 offset
 
 This method accepts the index of the first row to retrieve; it will be used in the SQL
 C<OFFSET> clause (or whatever your RDBMS dialect used for that purpose).
@@ -536,7 +541,7 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
 
     my $rs = $books_rs->limit(5)->offset(10);
 
-=method inner_join
+=head2 inner_join
 
 This method accepts the name of a column to join and a set of join conditions.
 It returns a L<DBIx::Lite::ResultSet> object to allow for further method chaining.
@@ -547,28 +552,28 @@ The join conditions are in the form I<my columns> => I<their columns>. In the ab
 example, we're selecting from the I<books> table to the I<authors> table, so the join 
 condition maps I<my> C<author_id> column to I<their> C<id> column.
 
-=method left_join
+=head2 left_join
 
 This method works like L<inner join> except it applies a C<LEFT JOIN> instead of an
 C<INNER JOIN>.
 
 =head1 RETRIEVING RESULTS
 
-=method all
+=head2 all
 
 This method will execute the C<SELECT> query and will return a list of 
 L<DBIx::Lite::Row> objects.
 
     my @books = $books_rs->all;
 
-=method single
+=head2 single
 
 This method will execute the C<SELECT> query and will return a L<DBIx::Lite::Row> 
 object populated with the first row found; if none is found, undef is returned.
 
     my $book = $dbix->table('books')->search({ id => 20 })->single;
 
-=method find
+=head2 find
 
 This method is a shortcut for L<search> and L<single>. The following statement
 is equivalent to the one in the previous example:
@@ -581,14 +586,14 @@ you can just pass its value(s) to C<find>:
     $dbix->schema->table('books')->pk('id');
     my $book = $dbix->table('books')->find(20);
 
-=method count
+=head2 count
 
 This method will execute a C<SELECT COUNT(*)> query and will return the resulting 
 number.
 
     my $book_count = $books_rs->count;
 
-=method next
+=head2 next
 
 This method is a convenient iterator to retrieve your results efficiently without 
 loading all of them in memory.
@@ -604,7 +609,7 @@ The following syntax will always retrieve just the first row in an endless loop:
         ...
     }
 
-=method get_column
+=head2 get_column
 
 This method accepts a column name to fetch. It will execute a C<SELECT> query to
 retrieve that column only and it will return a list with the values.
@@ -613,7 +618,7 @@ retrieve that column only and it will return a list with the values.
 
 =head1 MANIPULATING ROWS
 
-=method insert
+=head2 insert
 
 This method accepts a hashref with column values to pass to the C<INSERT> SQL command.
 It returns the inserted L<DBIx::Lite::Row> object. If you specified an autoincrementing
@@ -624,17 +629,17 @@ populate the resulting object accordingly.
         ->table('books')
         ->insert({ name => 'Camel Tales', year => 2012 });
 
-=method find_or_insert
+=head2 find_or_insert
 
 This method works like L<insert> but it will perform a L<find> search to check that
 no row already exists for the supplied column values. If a row is found it is returned,
-otherwise a SQL <INSERT> is performed and the inserted row is returned.
+otherwise a SQL C<INSERT> is performed and the inserted row is returned.
 
     my $book = $dbix
         ->table('books')
         ->find_or_insert({ name => 'Camel Tales', year => 2012 });
 
-=method update
+=head2 update
 
 This method accepts a hashref with column values to pass to the C<UPDATE> SQL command.
 
@@ -642,13 +647,13 @@ This method accepts a hashref with column values to pass to the C<UPDATE> SQL co
         ->search({ year => { '<' => 1920 } })
         ->update({ very_old => 1 });
 
-=method delete
+=head2 delete
 
 This method performs a C<DELETE> SQL command.
 
     $books_rs->delete;
 
-=method select_sql
+=head2 select_sql
 
 This method returns a list having the SQL C<SELECT> statement as the first item, 
 and bind values as subsequent values. No query is executed. This method
@@ -656,13 +661,13 @@ also works when no C<$dbh> or connection data is supplied to L<DBIx::Lite>.
 
     my ($sql, @bind) = $books_rs->select_sql;
 
-=method select_sth
+=head2 select_sth
 
-This methods executes the SQL C<SELECT> statement and returns it.
+This methods prepares the SQL C<SELECT> statement and returns it along with bind values.
 
-    my $sth = $books_rs->select_sth;
+    my ($sth, @bind) = $books_rs->select_sth;
 
-=method insert_sql
+=head2 insert_sql
 
 This method works like L<insert> but it will just return a list having the SQL statement
 as the first item, and bind values as subsequent values. No query is executed. This method
@@ -672,15 +677,15 @@ also works when no C<$dbh> or connection data is supplied to L<DBIx::Lite>.
         ->table('books')
         ->insert_sql({ name => 'Camel Tales', year => 2012 });
 
-=method insert_sth
+=head2 insert_sth
 
-This methods executes the SQL C<INSERT> statement and returns it.
+This methods prepares the SQL C<INSERT> statement and returns it along with bind values.
 
-   my $sth = $dbix
+   my ($sth, @bind) = $dbix
         ->table('books')
         ->insert_sth({ name => 'Camel Tales', year => 2012 });
 
-=method update_sql
+=head2 update_sql
 
 This method works like L<update> but it will just return a list having the SQL statement
 as the first item, and bind values as subsequent values. No query is executed. This method
@@ -688,13 +693,13 @@ also works when no C<$dbh> or connection data is supplied to L<DBIx::Lite>.
 
     my ($sql, @bind) = $books_rs->update_sql({ genre => 'tennis' });
 
-=method update_sth
+=head2 update_sth
 
-This method executes the SQL C<UPDATE> statement and returns it.
+This method prepares the SQL C<UPDATE> statement and returns it along with bind values.
 
-    my $sth = $books_rs->update_sth({ genre => 'tennis' });
+    my ($sth, @bind) = $books_rs->update_sth({ genre => 'tennis' });
 
-=method delete_sql
+=head2 delete_sql
 
 This method works like L<delete> but it will just return a list having the SQL statement
 as the first item, and bind values as subsequent values. No query is executed. This method
@@ -702,15 +707,15 @@ also works when no C<$dbh> or connection data is supplied to L<DBIx::Lite>.
 
     my ($sql, @bind) = $books_rs->delete_sql;
 
-=method delete_sth
+=head2 delete_sth
 
-This method executes the SQL C<DELETE> statement and returns it.
+This method prepares the SQL C<DELETE> statement and returns it along with bind values.
 
-    my $sth = $books_rs->delete_sth;
+    my ($sth, @bind) = $books_rs->delete_sth;
 
 =head1 PAGING
 
-=method page
+=head2 page
 
 This method accepts a page number. It defaults to 0, meaning no pagination. First page
 has index 1. Usage of this method implies L<limit> and L<offset>, so don't call them.
@@ -718,7 +723,7 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
 
     my $rs = $books_rs->page(3);
 
-=method rows_per_page
+=head2 rows_per_page
 
 This method accepts the number of rows for each page. It defaults to 10, and it has
 no effect unless L<page> is also called.
@@ -726,7 +731,7 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
 
     my $rs = $books_rs->rows_per_page(50)->page(3);
 
-=method pager
+=head2 pager
 
 This method returns a L<Data::Page> object already configured for the current query.
 Calling this method will execute a L<count> query to retrieve the total number of 

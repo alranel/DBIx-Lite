@@ -119,7 +119,7 @@ Table objects by calling the C<table()> method on a L<DBIx::Lite::Schema> object
 
     my $table = $dbix->schema->table('books');
 
-=method pk
+=head2 pk
 
 This method accepts a list of fields to be used as the table primary key. Setting
 a primary key enables C<update()> and C<delete()> methods on L<DBIx::Lite::Row>
@@ -127,7 +127,7 @@ objects.
 
     $dbix->schema->table('books')->pk('id');
 
-=method autopk
+=head2 autopk
 
 This method works like L<pk> but also marks the supplied column name as an 
 autoincrementing key. This will trigger the retrieval of the autoincremented
@@ -145,7 +145,7 @@ many-to-many relationship tables not having an autoincrementing id:
     $dbix->schema->table('tasks')->autopk('id');
     $dbix->schema->table('users_tasks')->pk('user_id', 'task_id');
 
-=method class
+=head2 class
 
 This method accepts a package name that DBIx::Lite will use for this table's 
 Result objects. You don't need to declare such package name anywhere else, as
@@ -165,7 +165,7 @@ name or declare your methods inline:
         return $self->page_count;
     }
 
-=method resultset_class
+=head2 resultset_class
 
 This method accepts a package name that DBIx::Lite will use for this table's 
 ResultSet objects. You don't need to declare such package name anywhere else, as

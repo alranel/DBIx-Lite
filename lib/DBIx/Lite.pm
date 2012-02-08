@@ -200,7 +200,7 @@ Such goals/key features are:
 
 =back
 
-=head1 CONSTRUCTORS
+=head1 METHODS
 
 Instantiating a DBIx::Lite object isn't more difficult than just writing:
 
@@ -223,7 +223,7 @@ unconnected DBIx::Lite object at a later stage:
     my $dbix = DBIx::Lite->new;
     $dbix->connect("dbi:Pg:dbname=$db", $user, $passwd);
 
-=method new
+=head2 new
 
 This class method may accept the following optional arguments:
 
@@ -247,16 +247,19 @@ connections.
 
 =back
 
-=head1 METHODS
+=head2 connect
 
-=method table
+This methods accepts a list of arguments that are passed to L<DBIx::Connector>. It 
+returns the DBIx::Lite object. It can be called either as class or object method.
+
+=head2 table
 
 This method accepts a table name and returns a L<DBIx::Lite::ResultSet> object on which
 you can chain its methods to build your query.
 
     my $rs = $dbix->table('books');
 
-=method schema
+=head2 schema
 
 This method returns our L<DBIx::Lite::Schema> object which may hold the definitions
 required for some advanced feature of DBIx::Lite. You can call then call its methods:
@@ -265,7 +268,7 @@ required for some advanced feature of DBIx::Lite. You can call then call its met
 
 See the L<DBIx::Lite::Schema> documentation for an explanation of its methods.
 
-=method dbh
+=head2 dbh
 
 This method returns a L<DBI> database handle that you can use to perform manual queries.
 

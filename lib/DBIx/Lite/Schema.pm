@@ -68,18 +68,18 @@ Schema object and reutilize it across multiple connections:
     my $conn1 = DBIx::Lite->new(schema => $schema)->connect(...);
     my $conn2 = DBIx::Lite->new(schema => $schema)->connect(...);
 
-=method new
+=head2 new
 
 The constructor takes no arguments.
 
-=method table
+=head2 table
 
 This method accepts a table name and returs the L<DBIx::Lite::Schema::Table>
 object corresponding to the requested table. You can then call methods on it.
 
     $schema->table('books')->autopk('id');
 
-=method one_to_many
+=head2 one_to_many
 
 This methods sets up a 1-to-N relationship between two tables. Just pass two
 table names to it, appending the relation key column name:
@@ -94,7 +94,7 @@ This will have the following effects:
 
 =item provide a C<books> accessor method in the authors ResultSet objects
 
-=item allow to call C<$author->insert_related('books', {...})>
+=item allow to call C<<$author->insert_related('books', {...})>>
 
 =back
 
