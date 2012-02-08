@@ -269,4 +269,6 @@ See the L<DBIx::Lite::Schema> documentation for an explanation of its methods.
 
 This method returns a L<DBI> database handle that you can use to perform manual queries.
 
+=for Pod::Coverage dbh_do driver_name txn
+
 =cut

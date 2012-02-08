@@ -160,4 +160,6 @@ object.
     $dbix->schema->one_to_many('authors.id' => 'books.author_id');
     my $book = $author->insert_related('books', { title => 'Camel Tales' });
 
+=for Pod::Coverage get pk
+
 =cut

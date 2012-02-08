@@ -185,4 +185,6 @@ package name or declare your methods inline:
         return $self->search({ multilanguage => 1 });
     }
 
+=for Pod::Coverage new
+
 =cut
