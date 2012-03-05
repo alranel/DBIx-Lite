@@ -6,13 +6,14 @@ use warnings;
 use Test::More tests => 4;
 use DBIx::Lite;
 
-my $dbix = DBIx::Lite->connect('dbi:SQLite:dbname=t/test.db', '', '');
+my $dbix = DBIx::Lite->new( abstract => { quote_char => '`', name_sep => '.' } );
+$dbix->connect('dbi:SQLite:dbname=t/test.db', '', '');
 
 $dbix->dbh->do('DROP TABLE IF EXISTS books');
-$dbix->dbh->do('CREATE TABLE books (id NUMBER, title TEXT, year NUMBER)');
+$dbix->dbh->do('CREATE TABLE books (id NUMBER, title TEXT, year NUMBER, key NUMBER)');
 
-$dbix->table('books')->insert({ id => 1, title => 'Camel Tales', year => 2012 });
-$dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 2010 });
+$dbix->table('books')->insert({ id => 1, title => 'Camel Tales', year => 2012, key => 1 });
+$dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 2010, key => 0 });
 
 {
     my $count = $dbix->table('books')->count;

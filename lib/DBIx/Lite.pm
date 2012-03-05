@@ -15,10 +15,12 @@ sub new {
     
     my $self = {
         schema      => delete $params{schema} || DBIx::Lite::Schema->new,
-        abstract    => SQL::Abstract::More->new,
+        abstract    => SQL::Abstract::More->new( %{ $params{abstract} } ),
         connector   => delete $params{connector},
         dbh         => delete $params{dbh},
     };
+
+    delete $params{abstract};
     
     !%params
         or die "Unknown options: " . join(', ', keys %params) . "\n";
@@ -244,6 +246,15 @@ This argument allows you to supply a pre-made L<DBIx::Lite::Schema> object. If n
 provided, a new empty one will be created for each DBIx::Lite object. This argument is
 useful if you want to prepare your schema in advance and reutilize it across multiple
 connections.
+
+=item I<abstract>
+
+This argument allows you to supply options for L<SQL::Abstract::More> module. Here is 
+example for MySQL DB backend to quote fields names with backtick to allow using reserved
+words as column's names.
+
+    my $db = DBIx::Lite->new( abstract => { quote_char => '`', name_sep => '.' } );
+    $db->connect("DBI:mysql:$db_dbname;host=$db_host", $db_username, $db_password); 
 
 =back
 
