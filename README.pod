@@ -98,7 +98,7 @@ required for some advanced feature of DBIx::Lite. You can call then call its met
 
 See the L<DBIx::Lite::Schema> documentation for an explanation of its methods.
 
-=item I<abstract>
+=head2 abstract
 
 This argument allows you to supply options for L<SQL::Abstract::More> module. Here is 
 example for MySQL DB backend to quote fields names with backtick to allow using reserved
