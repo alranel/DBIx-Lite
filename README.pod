@@ -4,7 +4,7 @@ DBIx::Lite - Chained and minimal ORM
 
 =head1 VERSION
 
-version 0.11
+version 0.13
 
 =head1 SYNOPSIS
 
@@ -56,52 +56,6 @@ version 0.11
         ->class('My::Subject')
         ->resultset_class('My::Subject::ResultSet');
 
-=head1 METHODS
-
-=head2 new
-
-This class method may accept the following optional arguments:
-
-=over 4
-
-=item I<dbh>
-
-This argument allows you to supply a pre-made L<DBI> database handle. See the example in 
-the previous paragraph.
-
-=item I<connector>
-
-This argument allows you to supply a pre-made L<DBIx::Connector> object.
-
-=item I<schema>
-
-This argument allows you to supply a pre-made L<DBIx::Lite::Schema> object. If none is
-provided, a new empty one will be created for each DBIx::Lite object. This argument is
-useful if you want to prepare your schema in advance and reutilize it across multiple
-connections.
-
-=back
-
-=head2 table
-
-This method accepts a table name and returns a L<DBIx::Lite::ResultSet> object on which
-you can chain its methods to build your query.
-
-    my $rs = $dbix->table('books');
-
-=head2 schema
-
-This method returns our L<DBIx::Lite::Schema> object which may hold the definitions
-required for some advanced feature of DBIx::Lite. You can call then call its methods:
-
-    $dbix->schema->table('authors')->autopk('id');
-
-See the L<DBIx::Lite::Schema> documentation for an explanation of its methods.
-
-=head2 dbh
-
-This method returns a L<DBI> database handle that you can use to perform manual queries.
-
 =head1 ABSTRACT
 
 Many ORMs and DBI abstraction layers are available on CPAN, one of the most notables
@@ -129,7 +83,7 @@ Such goals/key features are:
 
 =back
 
-=head1 CONSTRUCTORS
+=head1 METHODS
 
 Instantiating a DBIx::Lite object isn't more difficult than just writing:
 
@@ -152,7 +106,54 @@ unconnected DBIx::Lite object at a later stage:
     my $dbix = DBIx::Lite->new;
     $dbix->connect("dbi:Pg:dbname=$db", $user, $passwd);
 
-=head1 METHODS
+=head2 new
+
+This class method may accept the following optional arguments:
+
+=over 4
+
+=item I<dbh>
+
+This argument allows you to supply a pre-made L<DBI> database handle. See the example in 
+the previous paragraph.
+
+=item I<connector>
+
+This argument allows you to supply a pre-made L<DBIx::Connector> object.
+
+=item I<schema>
+
+This argument allows you to supply a pre-made L<DBIx::Lite::Schema> object. If none is
+provided, a new empty one will be created for each DBIx::Lite object. This argument is
+useful if you want to prepare your schema in advance and reutilize it across multiple
+connections.
+
+=back
+
+=head2 connect
+
+This methods accepts a list of arguments that are passed to L<DBIx::Connector>. It 
+returns the DBIx::Lite object. It can be called either as class or object method.
+
+=head2 table
+
+This method accepts a table name and returns a L<DBIx::Lite::ResultSet> object on which
+you can chain its methods to build your query.
+
+    my $rs = $dbix->table('books');
+
+=head2 schema
+
+This method returns our L<DBIx::Lite::Schema> object which may hold the definitions
+required for some advanced feature of DBIx::Lite. You can call then call its methods:
+
+    $dbix->schema->table('authors')->autopk('id');
+
+See the L<DBIx::Lite::Schema> documentation for an explanation of its methods.
+
+=head2 dbh
+
+This method returns a L<DBI> database handle that you can use to perform manual queries.
 
 =for Pod::Coverage dbh_do driver_name txn
 
