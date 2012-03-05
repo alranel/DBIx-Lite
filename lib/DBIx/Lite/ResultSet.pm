@@ -361,7 +361,7 @@ sub count {
     
     my $count;
     $self->{dbix_lite}->dbh_do(sub {
-        my $count_rs = ($self->_clone)->select(\ "COUNT(*)");
+        my $count_rs = ($self->_clone)->select(\ "-COUNT(*)");
         my ($sth, @bind) = $count_rs->select_sth;
         $sth->execute(@bind);
         $count = +($sth->fetchrow_array)[0];
