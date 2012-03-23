@@ -2,10 +2,12 @@ package DBIx::Lite::ResultSet;
 use strict;
 use warnings;
 
+use Carp qw(croak);
 use Clone qw(clone);
 use Data::Page;
 use List::MoreUtils qw(uniq);
 use vars qw($AUTOLOAD);
+$Carp::Internal{$_}++ for __PACKAGE__;
 
 sub _new {
     my $class = shift;

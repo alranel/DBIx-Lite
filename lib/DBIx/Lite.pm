@@ -3,11 +3,14 @@ package DBIx::Lite;
 use strict;
 use warnings;
 
+use Carp qw(croak);
 use DBIx::Connector;
 use DBIx::Lite::ResultSet;
 use DBIx::Lite::Row;
 use DBIx::Lite::Schema;
 use SQL::Abstract::More;
+
+$Carp::Internal{$_}++ for __PACKAGE__, qw(DBIx::Connector);
 
 sub new {
     my $class = shift;
@@ -39,6 +42,7 @@ sub connect {
     
     $self->{connector} = DBIx::Connector->new(@_);
     $self->{dbh} = undef;
+    $self->dbh->{HandleError} = sub { croak $_[0] };
     
     $self;
 }

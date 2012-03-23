@@ -4,6 +4,7 @@ use warnings;
 
 use Clone qw(clone);
 use vars qw($AUTOLOAD);
+$Carp::Internal{$_}++ for __PACKAGE__;
 
 sub _new {
     my $class = shift;
