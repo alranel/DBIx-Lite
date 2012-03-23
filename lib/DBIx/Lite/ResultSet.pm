@@ -22,7 +22,6 @@ sub _new {
         offset          => delete $params{offset},
         rows_per_page   => delete $params{rows_per_page} || 10,
         page            => delete $params{page},
-        pager           => delete $params{pager},
         cur_table       => delete $params{cur_table} || $params{table},
     };
     
@@ -44,6 +43,7 @@ for my $methname (qw(group_by having order_by limit offset rows_per_page page)) 
     
         my $new_self = $self->_clone;
         $new_self->{$methname} = $methname =~ /^(group_by|order_by)$/ ? [@_] : $_[0];
+        $new_self->{pager}->current_page($_[0]) if $methname eq 'page' && $new_self->{pager};
         $new_self;
     };
 }
@@ -52,7 +52,7 @@ sub _clone {
     my $self = shift;
     (ref $self)->_new(
         map { $_ => /^(?:dbix_lite|table|cur_table)$/ ? $self->{$_} : clone($self->{$_}) }
-            grep !/^(?:sth)$/, keys %$self,
+            grep !/^(?:sth|pager)$/, keys %$self,
     );
 }
 
@@ -109,7 +109,7 @@ sub select_sql {
     my @cols = ();
     my $have_scalar_ref = 0;
     my $cur_table_prefix = $self->_table_prefix($self->{cur_table}{name});
-    foreach my $col (@{$self->{select}}) {
+    foreach my $col (grep defined $_, @{$self->{select}}) {
         my ($expr, $as) = ref $col eq 'ARRAY' ? @$col : ($col, undef);
         $expr =~ s/^[^.]+$/$cur_table_prefix\.$&/ if !ref($expr);
         if (ref $expr eq 'SCALAR') {
@@ -130,8 +130,7 @@ sub select_sql {
     # joins
     my @joins = ();
     foreach my $join (@{$self->{joins}}) {
-        my ($table_name, $table_alias) = ref $join->[2] eq 'ARRAY'
-            ? @{$join->[2]} : ($join->[2], undef);
+        my ($table_name, $table_alias) = @{$join->[2]};
         my %cond = ();
         my $left_table_prefix = $self->_table_prefix($join->[1]{name});
         while (my ($col1, $col2) = each %{$join->[3]}) {
@@ -239,8 +238,8 @@ sub update_sql {
     }
     
     return $self->{dbix_lite}->{abstract}->update(
-        $self->{cur_table}{name}, $update_cols,
-        $update_where,
+        $self->{dbix_lite}->{abstract}->table_alias($self->{cur_table}{name}, $self->_table_prefix($self->{cur_table}{name})),
+        $update_cols, $update_where,
     );
 }
 
@@ -300,7 +299,8 @@ sub delete_sql {
     }
     
     return $self->{dbix_lite}->{abstract}->delete(
-        $self->{cur_table}{name}, $delete_where,
+        $self->{cur_table}{name},
+        $delete_where,
     );
 }
 
@@ -395,10 +395,17 @@ sub left_join {
 
 sub _join {
     my $self = shift;
-    my ($type, $table_name, $condition) = @_;
+    my ($type, $table_name, $condition, $options) = @_;
+    $options ||= {};
+    $table_name = [ $table_name, undef ] if ref $table_name ne 'ARRAY';
     
     my $new_self = $self->_clone;
-    push @{$new_self->{joins}}, [$type, $self->{cur_table}, $table_name, $condition];
+    push @{$new_self->{joins}}, [
+        $type,
+        $self->{cur_table},
+        $table_name,
+        $condition,
+    ] if !$options->{prevent_duplicates} || !grep { $_->[2][0] eq $table_name->[0] } @{$new_self->{joins}};
     $new_self;
 }
 
@@ -551,6 +558,12 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
 The join conditions are in the form I<my columns> => I<their columns>. In the above
 example, we're selecting from the I<books> table to the I<authors> table, so the join 
 condition maps I<my> C<author_id> column to I<their> C<id> column.
+
+The third, optional, argument can be a hashref with options. The only supported one
+is currently I<prevent_duplicates>: set this to true to have DBIx::Lite check whether
+you already joined the same table in this query. If you did, this join will be skipped:
+
+    my $rs = $books_rs->inner_join('authors', { author_id => 'id' }, { prevent_duplicates => 1 });
 
 =head2 left_join
 

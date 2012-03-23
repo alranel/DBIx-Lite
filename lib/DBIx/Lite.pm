@@ -15,12 +15,13 @@ sub new {
     
     my $self = {
         schema      => delete $params{schema} || DBIx::Lite::Schema->new,
-        abstract    => SQL::Abstract::More->new( %{ $params{abstract} } ),
+        abstract    => SQL::Abstract::More->new(
+            column_alias => '%s AS `%s`',
+            %{ delete $params{abstract} || {} },
+        ),
         connector   => delete $params{connector},
         dbh         => delete $params{dbh},
     };
-
-    delete $params{abstract};
     
     !%params
         or die "Unknown options: " . join(', ', keys %params) . "\n";
