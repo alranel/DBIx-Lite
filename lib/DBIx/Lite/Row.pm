@@ -76,7 +76,7 @@ sub _relationship {
     my ($rel_name) = @_;
     
     my ($rel_type) = grep $self->{table}{$_}{$rel_name}, qw(has_one has_many)
-        or return undef;
+        or return ();
     
     my $rel = $self->{table}{$rel_type}{$rel_name};
     my ($table_name, $my_key, $their_key) = ($rel->[0], %{ $rel->[1] });
