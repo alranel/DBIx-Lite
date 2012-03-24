@@ -54,7 +54,7 @@ sub update {
 sub delete {
     my $self = shift;
     
-    $self->{dbix_lite}->table($self->{table}{name})->find($self->pk)->delete;
+    $self->{dbix_lite}->table($self->{table}{name})->search($self->pk)->delete;
     undef $self;
 }
 
