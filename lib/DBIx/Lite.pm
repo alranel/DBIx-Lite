@@ -27,10 +27,10 @@ sub new {
     };
     
     !%params
-        or die "Unknown options: " . join(', ', keys %params) . "\n";
+        or croak "Unknown options: " . join(', ', keys %params);
     
     ref $self->{schema} eq 'DBIx::Lite::Schema'
-        or die "schema must be a DBIx::Lite::Schema object\n";
+        or croak "schema must be a DBIx::Lite::Schema object";
     
     bless $self, $class;
     $self;
@@ -58,7 +58,7 @@ sub schema {
 
 sub table {
     my $self = shift;
-    my $table_name = shift or die "Table name missing\n";
+    my $table_name = shift or croak "Table name missing";
     
     my $table = $self->schema->table($table_name);
     my $package = $table->resultset_class || 'DBIx::Lite::ResultSet';
@@ -75,7 +75,7 @@ sub dbh {
     return $self->{dbh} ? $self->{dbh}
         : $self->{connector} ? $self->{connector}->dbh
         : $dont_die ? undef
-        : die "No database handle or DBIx::Connector object provided\n";
+        : croak "No database handle or DBIx::Connector object provided";
 }
 
 sub dbh_do {
@@ -101,7 +101,7 @@ sub txn {
         eval { $code->() };
         if (my $err = $@) {
             eval { $self->dbh->rollback };
-            die $err;
+            croak $err;
         }
         $self->dbh->commit;
     }
@@ -124,7 +124,7 @@ sub _autopk {
     } elsif ($driver_name eq 'SQLite') {
         return $self->dbh_do(sub { +($_->selectrow_array('SELECT LAST_INSERT_ROWID()'))[0] });
     } else {
-        die "Autoincrementing ID is not supported on $driver_name\n";
+        croak "Autoincrementing ID is not supported on $driver_name";
     }
 }
 

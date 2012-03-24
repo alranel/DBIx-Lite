@@ -2,6 +2,7 @@ package DBIx::Lite::Row;
 use strict;
 use warnings;
 
+use Carp qw(croak);
 use Clone qw(clone);
 use vars qw($AUTOLOAD);
 $Carp::Internal{$_}++ for __PACKAGE__;
@@ -13,11 +14,11 @@ sub _new {
     my $self = {};
     
     for (qw(dbix_lite table data)) {
-        $self->{$_} = delete $params{$_} or die "$_ argument needed\n";
+        $self->{$_} = delete $params{$_} or croak "$_ argument needed";
     }
     
     !%params
-        or die "Unknown options: " . join(', ', keys %params) . "\n";
+        or croak "Unknown options: " . join(', ', keys %params);
     
     bless $self, $class;
     $self;
@@ -27,10 +28,10 @@ sub pk {
     my $self = shift;
     
     my @keys = $self->{table}->pk
-        or die "No primary key defined for table " . $self->{table}{name} . "\n";
+        or croak "No primary key defined for table " . $self->{table}{name};
     
     grep(!exists $self->{data}{$_}, @keys)
-        and die "No primary key data retrieved for table " . $self->{table}{name} . "\n";
+        and croak "No primary key data retrieved for table " . $self->{table}{name};
     
     return { map +($_ => $self->{data}{$_}), @keys };
 }
@@ -43,7 +44,7 @@ sub hashref {
 
 sub update {
     my $self = shift;
-    my $update_cols = shift or die "update() requires a hashref\n";
+    my $update_cols = shift or croak "update() requires a hashref";
     
     $self->{dbix_lite}->table($self->{table}{name})->search($self->pk)->update($update_cols);
     $self->{data}{$_} = $update_cols->{$_} for keys %$update_cols;
@@ -60,9 +61,10 @@ sub delete {
 sub insert_related {
     my $self = shift;
     my ($rel_name, $insert_cols) = @_;
-    $rel_name or die "insert_related() requires a table name\n";
+    $rel_name or croak "insert_related() requires a table name";
     
-    my ($table_name, $my_key, $their_key) = $self->_relationship($rel_name);
+    my ($table_name, $my_key, $their_key) = $self->_relationship($rel_name)
+        or croak "No $rel_name relationship defined for " . $self->{table}{name};
     
     return $self->{dbix_lite}
         ->table($table_name)
@@ -74,20 +76,20 @@ sub _relationship {
     my ($rel_name) = @_;
     
     my ($rel_type) = grep $self->{table}{$_}{$rel_name}, qw(has_one has_many)
-        or die "No $rel_name relationship defined for " . $self->{table}{name} . "\n";
+        or return undef;
     
     my $rel = $self->{table}{$rel_type}{$rel_name};
     my ($table_name, $my_key, $their_key) = ($rel->[0], %{ $rel->[1] });
     
     exists $self->{data}{$my_key}
-        or die "No $my_key key retrieved from " . $self->{table}{name} . "\n";
+        or croak "No $my_key key retrieved from " . $self->{table}{name};
     
     return ($table_name, $my_key, $their_key, $rel_type);
 }
 
 sub get {
     my $self = shift;
-    my $key = shift or die "get() requires a column name\n";
+    my $key = shift or croak "get() requires a column name";
     return $self->{data}{$key};
 }
 
@@ -108,7 +110,7 @@ sub AUTOLOAD {
         return $rel_type eq 'has_many' ? $rs : $rs->single;
     }
     
-    die sprintf "No %s method is provided by this %s (%s) object\n",
+    croak sprintf "No %s method is provided by this %s (%s) object",
         $method, ref($self), $self->{table}{name};
 }
 

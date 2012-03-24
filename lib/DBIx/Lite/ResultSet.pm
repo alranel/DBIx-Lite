@@ -28,11 +28,11 @@ sub _new {
     };
     
     for (qw(dbix_lite table)) {
-        $self->{$_} = delete $params{$_} or die "$_ argument needed\n";
+        $self->{$_} = delete $params{$_} or croak "$_ argument needed";
     }
     
     !%params
-        or die "Unknown options: " . join(', ', keys %params) . "\n";
+        or croak "Unknown options: " . join(', ', keys %params);
     
     bless $self, $class;
     $self;
@@ -182,7 +182,7 @@ sub select_sth {
 sub insert_sql {
     my $self = shift;
     my $insert_cols = shift;
-    ref $insert_cols eq 'HASH' or die "insert_sql() requires a hashref\n";
+    ref $insert_cols eq 'HASH' or croak "insert_sql() requires a hashref";
     
     return $self->{dbix_lite}->{abstract}->insert(
         $self->{table}{name}, $insert_cols,
@@ -192,7 +192,7 @@ sub insert_sql {
 sub insert_sth {
     my $self = shift;
     my $insert_cols = shift;
-    ref $insert_cols eq 'HASH' or die "insert_sth() requires a hashref\n";
+    ref $insert_cols eq 'HASH' or croak "insert_sth() requires a hashref";
     
     my ($sql, @bind) = $self->insert_sql($insert_cols);
     return $self->{dbix_lite}->dbh->prepare($sql) || undef, @bind;
@@ -201,7 +201,7 @@ sub insert_sth {
 sub insert {
     my $self = shift;
     my $insert_cols = shift;
-    ref $insert_cols eq 'HASH' or die "insert() requires a hashref\n";
+    ref $insert_cols eq 'HASH' or croak "insert() requires a hashref";
     
     my $res;
     $self->{dbix_lite}->dbh_do(sub {
@@ -221,15 +221,15 @@ sub insert {
 sub update_sql {
     my $self = shift;
     my $update_cols = shift;
-    ref $update_cols eq 'HASH' or die "update_sql() requires a hashref\n";
+    ref $update_cols eq 'HASH' or croak "update_sql() requires a hashref";
     
     my $update_where = { -and => $self->{where} };
     
     if ($self->{cur_table}{name} ne $self->{table}{name}) {
         my @pk = $self->{cur_table}->pk
-            or die "No primary key defined for " . $self->{cur_table}{name} . "; cannot update using relationships\n";
+            or croak "No primary key defined for " . $self->{cur_table}{name} . "; cannot update using relationships";
         @pk == 1
-            or die "Update across relationships is not allowed with multi-column primary keys\n";
+            or croak "Update across relationships is not allowed with multi-column primary keys";
         
         my $fq_pk = $self->_table_prefix($self->{cur_table}{name}) . "." . $pk[0];
         $update_where = {
@@ -248,7 +248,7 @@ sub update_sql {
 sub update_sth {
     my $self = shift;
     my $update_cols = shift;
-    ref $update_cols eq 'HASH' or die "update_sth() requires a hashref\n";
+    ref $update_cols eq 'HASH' or croak "update_sth() requires a hashref";
     
     my ($sql, @bind) = $self->update_sql($update_cols);
     return $self->{dbix_lite}->dbh->prepare($sql) || undef, @bind;
@@ -257,7 +257,7 @@ sub update_sth {
 sub update {
     my $self = shift;
     my $update_cols = shift;
-    ref $update_cols eq 'HASH' or die "update() requires a hashref\n";
+    ref $update_cols eq 'HASH' or croak "update() requires a hashref";
     
     my $res;
     $self->{dbix_lite}->dbh_do(sub {
@@ -270,7 +270,7 @@ sub update {
 sub find_or_insert {
     my $self = shift;
     my $cols = shift;
-    ref $cols eq 'HASH' or die "find_or_insert() requires a hashref\n";
+    ref $cols eq 'HASH' or croak "find_or_insert() requires a hashref";
     
     my $object;
     $self->{dbix_lite}->txn(sub {
@@ -288,9 +288,9 @@ sub delete_sql {
     
     if ($self->{cur_table}{name} ne $self->{table}{name}) {
         my @pk = $self->{cur_table}->pk
-            or die "No primary key defined for " . $self->{cur_table}{name} . "; cannot delete using relationships\n";
+            or croak "No primary key defined for " . $self->{cur_table}{name} . "; cannot delete using relationships";
         @pk == 1
-            or die "Delete across relationships is not allowed with multi-column primary keys\n";
+            or croak "Delete across relationships is not allowed with multi-column primary keys";
         
         my $fq_pk = $self->_table_prefix($self->{cur_table}{name}) . "." . $pk[0];
         $delete_where = {
@@ -373,7 +373,7 @@ sub count {
 
 sub get_column {
     my $self = shift;
-    my $column_name = shift or die "get_column() requires a column name";
+    my $column_name = shift or croak "get_column() requires a column name";
     
     my @values = ();
     $self->{dbix_lite}->dbh_do(sub {
@@ -442,7 +442,7 @@ sub AUTOLOAD {
         return $new_self;
     }
     
-    die "No $method method is provided by this " . ref($self) . " object\n";
+    croak "No $method method is provided by this " . ref($self) . " object";
 }
 
 sub DESTROY {}

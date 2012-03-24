@@ -2,6 +2,9 @@ package DBIx::Lite::Schema::Table;
 use strict;
 use warnings;
 
+use Carp qw(croak);
+$Carp::Internal{$_}++ for __PACKAGE__;
+
 sub new {
     my $class = shift;
     my (%params) = @_;
@@ -15,16 +18,16 @@ sub new {
     };
     
     for (qw(name)) {
-        $self->{$_} = delete $params{$_} or die "$_ argument needed\n";
+        $self->{$_} = delete $params{$_} or croak "$_ argument needed";
     }
     
     if ($self->{autopk} = delete $params{autopk}) {
-        !ref $self->{autopk} or die "autopk only accepts a single column\n";
+        !ref $self->{autopk} or croak "autopk only accepts a single column";
         $self->{pk} = [$self->{autopk}];
     }
     
     !%params
-        or die "Unknown options: " . join(', ', keys %params) . "\n";
+        or croak "Unknown options: " . join(', ', keys %params);
     
     bless $self, $class;
     $self;
@@ -95,7 +98,7 @@ sub _init_package {
         
         my @base_subroutines = grep defined &{"$base\::$_"}, keys %{"$base\::"};
         for (@base_subroutines) {
-            die "$package defines a '$_' subroutine/method; cannot use it as custom class\n"
+            croak "$package defines a '$_' subroutine/method; cannot use it as custom class"
                 if $subroutines{$_};
         }
     }
