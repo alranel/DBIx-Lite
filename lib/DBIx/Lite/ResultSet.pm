@@ -334,6 +334,18 @@ sub single {
     return $row ? $self->_inflate_row($row) : undef;
 }
 
+sub single_value {
+    my $self = shift;
+    
+    my $value;
+    $self->{dbix_lite}->dbh_do(sub {
+        my ($sth, @bind) = $self->select_sth;
+        $sth->execute(@bind);
+        ($value) = $sth->fetchrow_array;
+    });
+    return $value;
+}
+
 sub all {
     my $self = shift;
     
@@ -630,6 +642,13 @@ This method accepts a column name to fetch. It will execute a C<SELECT> query to
 retrieve that column only and it will return a list with the values.
 
     my @book_titles = $books_rs->get_column('title');
+
+=head2 single_value
+
+This method returns the value of the first cell of the first row. It's useful in
+situations like this:
+
+    my $max = $books_rs->select(\"MAX(pages)")->single_value;
 
 =head1 MANIPULATING ROWS
 
