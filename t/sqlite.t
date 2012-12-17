@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 5;
 use DBIx::Lite;
 
 my $dbix = DBIx::Lite->new( abstract => { quote_char => '`', name_sep => '.' } );
@@ -24,6 +24,11 @@ $dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 20
     my $book = $dbix->table('books')->find({ year => 2010 });
     isa_ok $book, 'DBIx::Lite::Row';
     is $book->id, 2, 'fetch result';
+}
+
+{
+    $dbix->table('books')->search({ year => 2010 })->update({ year => 2011 });
+    pass 'update';
 }
 
 {
