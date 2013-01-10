@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 7;
 use DBIx::Lite;
 
 my $dbix = DBIx::Lite->new( abstract => { quote_char => '`', name_sep => '.' } );
@@ -34,6 +34,16 @@ $dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 20
 {
     my @titles = $dbix->table('books')->order_by('+title')->get_column('title');
     is_deeply \@titles, ['Camel Adventures', 'Camel Tales'], 'get_column';
+}
+
+{
+    my @expect = qw( id title year key );
+
+    my $column_names_ref = $dbix->table('books')->column_names;
+    is_deeply $column_names_ref, \@expect, 'column_names in scalar context';
+
+    my @column_names = $dbix->table('books')->column_names;
+    is_deeply \@column_names, \@expect, 'column_names in list context';
 }
 
 __END__

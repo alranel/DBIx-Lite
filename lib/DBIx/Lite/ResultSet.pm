@@ -383,6 +383,18 @@ sub count {
     return $count;
 }
 
+sub column_names {
+    my $self = shift;
+
+    $self->{dbix_lite}->dbh_do(sub {
+        ($self->{sth}, my @bind) = $self->select_sth;
+        $self->{sth}->execute(@bind);
+    }) if !$self->{sth};
+
+    my $c = $self->{sth}->{NAME};
+    return wantarray ? @$c : $c;
+}
+
 sub get_column {
     my $self = shift;
     my $column_name = shift or croak "get_column() requires a column name";
@@ -646,6 +658,14 @@ The following syntax will always retrieve just the first row in an endless loop:
     while (my $book = $dbix->table('books')->next) {
         ...
     }
+
+=head2 column_names
+
+This method returns a list of column names.
+It returns array on list context and array reference on scalar context.
+
+    my @book_columns = $books_rs->column_names;
+    my $book_columns = $books_rs->column_names; # array reference
 
 =head2 get_column
 
