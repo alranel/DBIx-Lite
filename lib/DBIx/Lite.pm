@@ -123,6 +123,10 @@ sub _autopk {
         return $self->dbh_do(sub { +($_->selectrow_array('SELECT LAST_INSERT_ID()'))[0] });
     } elsif ($driver_name eq 'SQLite') {
         return $self->dbh_do(sub { +($_->selectrow_array('SELECT LAST_INSERT_ROWID()'))[0] });
+    } elsif ($driver_name eq 'Pg' ){ 
+        return $self->dbh_do(sub { +($_->selectrow_array(
+            qq{SELECT currval(pg_get_serial_sequence('$table_name', '$self->{schema}->{tables}->{$table_name}->{autopk}'))}
+        ))[0] });
     } else {
         croak "Autoincrementing ID is not supported on $driver_name";
     }
