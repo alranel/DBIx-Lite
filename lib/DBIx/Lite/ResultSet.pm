@@ -203,16 +203,16 @@ sub insert {
     my $insert_cols = shift;
     ref $insert_cols eq 'HASH' or croak "insert() requires a hashref";
     
-    my $res;
+    my ($res, $sth, @bind);
     $self->{dbix_lite}->dbh_do(sub {
-        my ($sth, @bind) = $self->insert_sth($insert_cols);
+        ($sth, @bind) = $self->insert_sth($insert_cols);
         $res = $sth->execute(@bind);
     });
     return undef if !$res;
     
     if (my $pk = $self->{table}->autopk) {
         $insert_cols = clone $insert_cols;
-        $insert_cols->{$pk} = $self->{dbix_lite}->_autopk($self->{table}{name})
+        $insert_cols->{$pk} = $self->{dbix_lite}->_autopk($sth)
             if !exists $insert_cols->{$pk};
     }
     return $self->_inflate_row($insert_cols);

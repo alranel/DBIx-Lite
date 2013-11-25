@@ -115,7 +115,7 @@ sub driver_name {
 
 sub _autopk {
     my $self = shift;
-    my $table_name = shift;
+    my $sth = shift;
     
     my $driver_name = $self->driver_name;
     
@@ -123,6 +123,8 @@ sub _autopk {
         return $self->dbh_do(sub { +($_->selectrow_array('SELECT LAST_INSERT_ID()'))[0] });
     } elsif ($driver_name eq 'SQLite') {
         return $self->dbh_do(sub { +($_->selectrow_array('SELECT LAST_INSERT_ROWID()'))[0] });
+    } elsif ($driver_name eq 'Informix') {
+        return $sth->{ix_sqlerrd}->[1];
     } else {
         croak "Autoincrementing ID is not supported on $driver_name";
     }
