@@ -123,6 +123,8 @@ sub _autopk {
         return $self->dbh_do(sub { +($_->selectrow_array('SELECT LAST_INSERT_ID()'))[0] });
     } elsif ($driver_name eq 'SQLite') {
         return $self->dbh_do(sub { +($_->selectrow_array('SELECT LAST_INSERT_ROWID()'))[0] });
+    } elsif ($driver_name eq 'Pg') {
+        return $self->dbh_do(sub { $_->last_insert_id( undef, undef, $table_name, undef ) });
     } else {
         croak "Autoincrementing ID is not supported on $driver_name";
     }
