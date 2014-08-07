@@ -5,7 +5,7 @@ use warnings;
 use Carp qw(croak);
 use Clone qw(clone);
 use Data::Page;
-use List::MoreUtils qw(uniq);
+use List::MoreUtils qw(uniq firstval);
 use vars qw($AUTOLOAD);
 $Carp::Internal{$_}++ for __PACKAGE__;
 
@@ -123,7 +123,7 @@ sub select_sql {
     
     # always retrieve our primary key if provided and no col name is a scalar ref
     if (!$have_scalar_ref && (my @pk = $self->{cur_table}->pk)) {
-        if (not "$cur_table_prefix.*" ~~ @cols) {
+        if (not firstval { "$cur_table_prefix.*" eq $_ } @cols) {
             $_ =~ s/^[^.]+$/$cur_table_prefix\.$&/ for @pk;
             unshift @cols, @pk;
         }
