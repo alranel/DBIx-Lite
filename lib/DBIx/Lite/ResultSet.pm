@@ -259,12 +259,12 @@ sub update {
     my $update_cols = shift;
     ref $update_cols eq 'HASH' or croak "update() requires a hashref";
     
-    my $res;
+    my $affected_rows;
     $self->{dbix_lite}->dbh_do(sub {
         my ($sth, @bind) = $self->update_sth($update_cols);
-        $res = $sth->execute(@bind);
+        $affected_rows = $sth->execute(@bind);
     });
-    return $res;
+    return $affected_rows;
 }
 
 sub find_or_insert {
@@ -316,10 +316,12 @@ sub delete_sth {
 sub delete {
     my $self = shift;
     
+    my $affected_rows;
     $self->{dbix_lite}->dbh_do(sub {
         my ($sth, @bind) = $self->delete_sth;
-        $sth->execute(@bind);
+        $affected_rows = $sth->execute(@bind);
     });
+    return $affected_rows;
 }
 
 sub single {
@@ -707,6 +709,7 @@ otherwise a SQL C<INSERT> is performed and the inserted row is returned.
 =head2 update
 
 This method accepts a hashref with column values to pass to the C<UPDATE> SQL command.
+It returns the number of affected rows.
 
     $dbix->table('books')
         ->search({ year => { '<' => 1920 } })
@@ -714,7 +717,7 @@ This method accepts a hashref with column values to pass to the C<UPDATE> SQL co
 
 =head2 delete
 
-This method performs a C<DELETE> SQL command.
+This method performs a C<DELETE> SQL command. It returns the number of affected rows.
 
     $books_rs->delete;
 

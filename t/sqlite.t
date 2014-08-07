@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 8;
 use DBIx::Lite;
 
 my $dbix = DBIx::Lite->new( abstract => { quote_char => '`', name_sep => '.' } );
@@ -27,8 +27,9 @@ $dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 20
 }
 
 {
-    $dbix->table('books')->search({ year => 2010 })->update({ year => 2011 });
+    my $rows = $dbix->table('books')->search({ year => 2010 })->update({ year => 2011 });
     pass 'update';
+    is $rows, 1, 'rows affected by update';
 }
 
 {
