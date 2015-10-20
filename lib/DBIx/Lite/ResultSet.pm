@@ -598,7 +598,11 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
 
 The join conditions are in the form I<my columns> => I<their columns>. In the above
 example, we're selecting from the I<books> table to the I<authors> table, so the join 
-condition maps I<my> C<author_id> column to I<their> C<id> column.
+condition maps I<my> C<author_id> column to I<their> C<id> column. In order to insert
+literal SQL in the join conditions you can supply a string reference containing the operator,
+like this:
+
+    my $rs = $books_rs->inner_join('authors', { author_id => 'id', 'authors.age' => \"< 18" });
 
 The third, optional, argument can be a hashref with options. The only supported one
 is currently I<prevent_duplicates>: set this to true to have DBIx::Lite check whether
