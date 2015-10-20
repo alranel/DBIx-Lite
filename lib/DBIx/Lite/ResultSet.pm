@@ -125,7 +125,9 @@ sub select_sql {
     if (!$have_scalar_ref && (my @pk = $self->{cur_table}->pk)) {
         if (not firstval { "$cur_table_prefix.*" eq $_ } @cols) {
             $_ =~ s/^[^.]+$/$cur_table_prefix\.$&/ for @pk;
-            unshift @cols, @pk;
+            # append instead of prepent, otherwise get_column() on a non-PK column 
+            # would return the wrong values
+            push @cols, @pk;
         }
     }
     
