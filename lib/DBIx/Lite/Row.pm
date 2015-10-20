@@ -106,7 +106,7 @@ sub AUTOLOAD {
     if (my ($table_name, $my_key, $their_key, $rel_type) = $self->_relationship($method)) {
         my $rs = $self->{dbix_lite}
             ->table($table_name)
-            ->search({ $their_key => $self->{data}{$my_key} });
+            ->search({ "me.$their_key" => $self->{data}{$my_key} });
         return $rel_type eq 'has_many' ? $rs : $rs->single;
     }
     
