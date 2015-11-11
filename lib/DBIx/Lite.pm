@@ -19,7 +19,7 @@ sub new {
     my $self = {
         schema      => delete $params{schema} || DBIx::Lite::Schema->new,
         abstract    => SQL::Abstract::More->new(
-            column_alias => '%s AS `%s`',
+            column_alias => '%s AS %s',
             %{ delete $params{abstract} || {} },
         ),
         connector   => delete $params{connector},
