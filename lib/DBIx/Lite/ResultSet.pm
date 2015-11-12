@@ -88,7 +88,7 @@ sub search {
     my ($where) = @_;
     
     my $new_self = $self->_clone;
-    push @{$new_self->{where}}, $where;
+    push @{$new_self->{where}}, $where if defined $where;
     $new_self;
 }
 
