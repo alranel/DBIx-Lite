@@ -105,9 +105,10 @@ sub find {
 sub select_sql {
     my $self = shift;
     
+    # import the quoting subroutine from SQL::Abstract
     my $quote = sub { $self->{dbix_lite}->{abstract}->_quote(@_) };
     
-    # column names
+    # prepare column names
     my @cols = ();
     my $have_scalar_ref = 0;
     my $cur_table_prefix = $self->_table_prefix($self->{cur_table}{name}, 'select');
@@ -442,7 +443,7 @@ sub _join {
 sub _table_prefix {
     my $self = shift;
     my ($table_name, $op) = @_;
-    return ($op eq 'select' && $table_name eq $self->{table}{name}) ? 'me' : $table_name;
+    return ($op =~ /^(?:select|update)$/ && $table_name eq $self->{table}{name}) ? 'me' : $table_name;
 }
 
 sub _table_alias {
