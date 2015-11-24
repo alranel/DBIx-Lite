@@ -3,17 +3,20 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More tests => 15;
 use DBIx::Lite;
 
-my $dbix = DBIx::Lite->new( abstract => { quote_char => '`', name_sep => '.' } );
+my $dbix = DBIx::Lite->new;
 $dbix->connect('dbi:SQLite:dbname=t/test.db', '', '');
 
 $dbix->dbh->do('DROP TABLE IF EXISTS books');
-$dbix->dbh->do('CREATE TABLE books (id NUMBER, title TEXT, year NUMBER, key NUMBER)');
-
-$dbix->table('books')->insert({ id => 1, title => 'Camel Tales', year => 2012, key => 1 });
-$dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 2010, key => 0 });
+$dbix->dbh->do('DROP TABLE IF EXISTS authors');
+$dbix->dbh->do('CREATE TABLE authors (id NUMBER, name TEXT, age NUMBER)');
+$dbix->table('authors')->insert({ id => 1, name => 'Larry Wall', age => 30 });
+$dbix->table('authors')->insert({ id => 2, name => 'John Smith', age => 50 });
+$dbix->dbh->do('CREATE TABLE books (id NUMBER, title TEXT, year NUMBER, author_id NUMBER)');
+$dbix->table('books')->insert({ id => 1, title => 'Camel Tales', year => 2012, author_id => 1 });
+$dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 2010, author_id => 1 });
 
 {
     my $count = $dbix->table('books')->count;
@@ -37,14 +40,37 @@ $dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 20
     is_deeply \@titles, ['Camel Adventures', 'Camel Tales'], 'get_column';
 }
 
+foreach my $table_alias ('', 'me.', 'authors.') {
+    my $rs = $dbix->table('authors')
+        ->left_join('books', { "${table_alias}id" => 'author_id' })
+        ->search({ "me.name" => 'Larry Wall' });
+    is $rs->count, 2, "join with '$table_alias' prefix";
+}
+
 {
-    my @expect = qw( id title year key );
+    my $rs = $dbix->table('books')
+        ->inner_join('authors', { 'author_id' => 'id', 'authors.age' => { '<' => 35 } });
+    is $rs->count, 2, "join with hashref condition";
+}
+
+{
+    my @expect = qw( id title year author_id );
 
     my $column_names_ref = $dbix->table('books')->column_names;
     is_deeply $column_names_ref, \@expect, 'column_names in scalar context';
 
     my @column_names = $dbix->table('books')->column_names;
     is_deeply \@column_names, \@expect, 'column_names in list context';
+}
+
+$dbix->schema->one_to_many('authors.id' => 'books.author_id', 'author');
+
+{
+    my $book = $dbix->table('books')->find({ id => 1 });
+    my $author = $book->author;
+    isa_ok $author, 'DBIx::Lite::Row';
+    is $author->name, 'Larry Wall';
+    is $author->books->count, 2;
 }
 
 __END__

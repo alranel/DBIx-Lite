@@ -13,6 +13,7 @@ sub _new {
     my $class = shift;
     my (%params) = @_;
     
+    # optional arguments
     my $self = {
         joins           => delete $params{joins} || [],
         where           => delete $params{where} || [],
@@ -27,6 +28,7 @@ sub _new {
         cur_table       => delete $params{cur_table} || $params{table},
     };
     
+    # required arguments
     for (qw(dbix_lite table)) {
         $self->{$_} = delete $params{$_} or croak "$_ argument needed";
     }
@@ -38,21 +40,29 @@ sub _new {
     $self;
 }
 
+# create setters
 for my $methname (qw(group_by having order_by limit offset rows_per_page page)) {
     no strict 'refs';
     *$methname = sub {
         my $self = shift;
-    
+        
+        # we always return a new object for easy chaining
         my $new_self = $self->_clone;
+        
+        # set new values
         $new_self->{$methname} = $methname =~ /^(group_by|order_by)$/ ? [@_] : $_[0];
         $new_self->{pager}->current_page($_[0]) if $methname eq 'page' && $new_self->{pager};
+        
+        # return object
         $new_self;
     };
 }
 
+# return a clone of this object
 sub _clone {
     my $self = shift;
     (ref $self)->_new(
+        # clone all members except for some which we copy by reference
         map { $_ => /^(?:dbix_lite|table|cur_table)$/ ? $self->{$_} : clone($self->{$_}) }
             grep !/^(?:sth|pager)$/, keys %$self,
     );
@@ -96,6 +106,9 @@ sub find {
     my $self = shift;
     my ($where) = @_;
     
+    # if user did not supply a search hashref, we assume the supplied
+    # value(s) are the key(s) of the primary key column(s) defined for
+    # this table
     if (!ref $where && (my @pk = $self->{table}->pk)) {
         $where = { map +(shift(@pk) => $_), @_ };
     }
@@ -108,25 +121,35 @@ sub select_sql {
     # import the quoting subroutine from SQL::Abstract
     my $quote = sub { $self->{dbix_lite}->{abstract}->_quote(@_) };
     
-    # prepare column names
+    # prepare names of columns to be selected
     my @cols = ();
     my $have_scalar_ref = 0;
-    my $cur_table_prefix = $self->_table_prefix($self->{cur_table}{name}, 'select');
+    my $cur_table_prefix = $self->_table_alias($self->{cur_table}{name}, 'select');
     foreach my $col (grep defined $_, @{$self->{select}}) {
+        # check whether user specified an alias
         my ($expr, $as) = ref $col eq 'ARRAY' ? @$col : ($col, undef);
+        
+        # prepend table alias if column name doesn't contain one already
         $expr =~ s/^[^.]+$/$cur_table_prefix\.$&/ if !ref($expr);
+        
+        # explode the expression if it's a scalar ref
         if (ref $expr eq 'SCALAR') {
             $expr = $$expr;
             $have_scalar_ref = 1;
         }
+        
+        # build the column definition according to the SQL::Abstract::More syntax
         push @cols, $expr . ($as ? "|$as" : "");
     }
     
     # always retrieve our primary key if provided and no col name is a scalar ref
     if (!$have_scalar_ref && (my @pk = $self->{cur_table}->pk)) {
+        # skip this if we are retrieving all columns (me.*)
         if (not firstval { "$cur_table_prefix.*" eq $_ } @cols) {
+            # prepend table alias to all pk columns
             $_ =~ s/^[^.]+$/$cur_table_prefix\.$&/ for @pk;
-            # append instead of prepent, otherwise get_column() on a non-PK column 
+            
+            # append instead of prepend, otherwise get_column() on a non-PK column 
             # would return the wrong values
             push @cols, @pk;
         }
@@ -135,23 +158,42 @@ sub select_sql {
     # joins
     my @joins = ();
     foreach my $join (@{$self->{joins}}) {
-        my ($table_name, $table_alias) = @{$join->[2]};
+        # get table name and alias if any
+        my ($table_name, $table_alias) = @{$join->{table}};
+        my $left_table_prefix = $self->_table_alias($join->{cur_table}{name}, 'select');
+        
+        # prepare join conditions
         my %cond = ();
-        my $left_table_prefix = $self->_table_prefix($join->[1]{name}, 'select');
-        while (my ($col1, $col2) = each %{$join->[3]}) {
-            $col1 =~ s/^[^.]+$/$left_table_prefix\.$&/;
+        while (my ($col1, $col2) = each %{$join->{condition}}) {
+            # in case they have no explicit table alias,
+            # $col1 is supposed to belong to the current table, and
+            # $col2 is supposed to belong to the joined table
+            
+            # prepend table alias to the column of the first table
+            $col1 =~ s/^[^.]+$/$left_table_prefix.$&/;
+            
+            # in case user supplied the table name as table alias, replace it
+            # with the proper one (such as "me.")
+            $col1 =~ s/^$join->{cur_table}{name}\./$left_table_prefix./;
+            
+            # prepend table alias to the column of the second table
             $col2 = ($table_alias || $quote->($table_name)) . ".$col2"
                 unless ref $col2 || $col2 =~ /\./;
+            
+            # in case the second item is a scalar reference (literal SQL)
+            # or a hashref (search condition), pass it unchanged
             $cond{$col1} = ref($col2) ? $col2 : \ "= $col2";
         }
+        
+        # store the join definition according to the SQL::Abstract::More syntax
         push @joins, {
-            operator    => $join->[0] eq 'inner' ? '<=>' : '=>',
+            operator    => $join->{join_type} eq 'inner' ? '<=>' : '=>',
             condition   => \%cond,
         };
         push @joins, $table_name . ($table_alias ? "|$table_alias" : "");
     }
     
-    # paging
+    # paging overrides limit and offset if any
     if ($self->{page}) {
         $self->{limit} = $self->{rows_per_page};
         $self->{offset} = $self->pager->skipped;
@@ -187,6 +229,10 @@ sub insert_sql {
     my $insert_cols = shift;
     ref $insert_cols eq 'HASH' or croak "insert_sql() requires a hashref";
     
+    if (@{$self->{joins}}) {
+        warn "Attempt to call ->insert() after joining other tables\n";
+    }
+    
     return $self->{dbix_lite}->{abstract}->insert(
         $self->{table}{name}, $insert_cols,
     );
@@ -206,6 +252,7 @@ sub insert {
     my $insert_cols = shift;
     ref $insert_cols eq 'HASH' or croak "insert() requires a hashref";
     
+    # perform operation
     my $res;
     $self->{dbix_lite}->dbh_do(sub {
         my ($sth, @bind) = $self->insert_sth($insert_cols);
@@ -213,11 +260,14 @@ sub insert {
     });
     return undef if !$res;
     
+    # populate the autopk field if any
     if (my $pk = $self->{table}->autopk) {
         $insert_cols = clone $insert_cols;
         $insert_cols->{$pk} = $self->{dbix_lite}->_autopk($self->{table}{name})
             if !exists $insert_cols->{$pk};
     }
+    
+    # return a DBIx::Lite::Row object with the inserted values
     return $self->_inflate_row($insert_cols);
 }
 
@@ -234,7 +284,7 @@ sub update_sql {
         @pk == 1
             or croak "Update across relationships is not allowed with multi-column primary keys";
         
-        my $fq_pk = $self->_table_prefix($self->{cur_table}{name}, 'update') . "." . $pk[0];
+        my $fq_pk = $self->_table_alias($self->{cur_table}{name}, 'update') . "." . $pk[0];
         $update_where = {
             $fq_pk => {
                 -in => \[ $self->select($pk[0])->select_sql ],
@@ -243,7 +293,7 @@ sub update_sql {
     }
     
     return $self->{dbix_lite}->{abstract}->update(
-        $self->_table_alias($self->{cur_table}{name}, $self->_table_prefix($self->{cur_table}{name}, 'update')),
+        $self->_table_alias_expr($self->{cur_table}{name}, 'update'),
         $update_cols, $update_where,
     );
 }
@@ -295,7 +345,7 @@ sub delete_sql {
         @pk == 1
             or croak "Delete across relationships is not allowed with multi-column primary keys";
         
-        my $fq_pk = $self->_table_prefix($self->{cur_table}{name}, 'delete') . "." . $pk[0];
+        my $fq_pk = $self->_table_alias($self->{cur_table}{name}, 'delete') . "." . $pk[0];
         $delete_where = {
             $fq_pk => {
                 -in => \[ $self->select($pk[0])->select_sql ],
@@ -431,28 +481,54 @@ sub _join {
     $table_name = [ $table_name, undef ] if ref $table_name ne 'ARRAY';
     
     my $new_self = $self->_clone;
-    push @{$new_self->{joins}}, [
-        $type,
-        $self->{cur_table},
-        $table_name,
-        $condition,
-    ] if !$options->{prevent_duplicates} || !grep { $_->[2][0] eq $table_name->[0] } @{$new_self->{joins}};
+    
+    # if user asked for duplicate join removal, check whether no joins
+    # with the same table alias exist
+    if ($options->{prevent_duplicates}) {
+        foreach my $join (@{$self->{joins}}) {
+            if ((defined($table_name->[1]) && defined $join->{table}[1] && $table_name->[1] eq $join->{table}[1])
+                || (!defined($table_name->[1]) && $table_name->[0] eq $join->{table}[0])) {
+                return $new_self;
+            }
+        }
+    }
+    
+    push @{$new_self->{joins}}, {
+        join_type   => $type,
+        cur_table   => $self->{cur_table},
+        table       => $table_name,
+        condition   => $condition,
+    };
+    
     $new_self;
-}
-
-sub _table_prefix {
-    my $self = shift;
-    my ($table_name, $op) = @_;
-    return ($op =~ /^(?:select|update)$/ && $table_name eq $self->{table}{name}) ? 'me' : $table_name;
 }
 
 sub _table_alias {
     my $self = shift;
-    my ($table_name, $table_alias) = @_;
+    my ($table_name, $op) = @_;
     
+    my $driver_name = $self->{dbix_lite}->driver_name;
+    
+    if ($table_name eq $self->{table}{name}) {
+        if ($op eq 'select'
+            || ($op eq 'update' && $driver_name ne 'SQLite')) {
+            return 'me';
+        }
+    }
+    
+    return $table_name;
+}
+
+sub _table_alias_expr {
+    my $self = shift;
+    my ($table_name, $op) = @_;
+    
+    my $table_alias = $self->_table_alias($table_name, $op);
     if ($table_name eq $table_alias) {
+        # foo
         return $table_name;
     } else {
+        # foo AS my_foo
         return $self->{dbix_lite}->{abstract}->table_alias($table_name, $table_alias);
     }
 }
@@ -597,12 +673,21 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
 
     my $rs = $books_rs->inner_join('authors', { author_id => 'id' });
 
-The join conditions are in the form I<my columns> => I<their columns>. In the above
-example, we're selecting from the I<books> table to the I<authors> table, so the join 
-condition maps I<my> C<author_id> column to I<their> C<id> column. In order to insert
-literal SQL in the join conditions you can supply a string reference containing the operator,
-like this:
+The second argument (join conditions) is a normal search hashref like the one supported
+by L<search> and L<SQL::Abstract>. However, values are assumed to be column names instead
+of actual values.
+Unless you specify your own table aliases using the dot notation, the hashref keys are
+considered to be column names belonging to the left table and the hashref values are
+considered to be column names belonging to the joined table:
 
+    my $rs = $books_rs->inner_join($other_table, { $my_column => $other_table_column });
+
+In the above example, we're selecting from the I<books> table to the I<authors> table, so 
+the join condition maps I<my> C<author_id> column to I<their> C<id> column.
+In order to use more sophisticated join conditions you can use the normal SQL::Abstract 
+syntax including literal SQL:
+
+    my $rs = $books_rs->inner_join('authors', { author_id => 'id', 'authors.age' => { '<' => $age } });
     my $rs = $books_rs->inner_join('authors', { author_id => 'id', 'authors.age' => \"< 18" });
 
 The third, optional, argument can be a hashref with options. The only supported one
@@ -610,6 +695,12 @@ is currently I<prevent_duplicates>: set this to true to have DBIx::Lite check wh
 you already joined the same table in this query. If you did, this join will be skipped:
 
     my $rs = $books_rs->inner_join('authors', { author_id => 'id' }, { prevent_duplicates => 1 });
+
+If you want to specify a table alias, just supply an arrayref. In this case, the
+I<prevent_duplicates> option will only check whether the supplied table alias was already
+used, thus allowing to join the same table multiple times using different table aliases.
+
+    my $rs = $books_rs->inner_join(['authors' => 't1'], { author_id => 'id' });
 
 =head2 left_join
 
@@ -695,13 +786,17 @@ situations like this:
 =head2 insert
 
 This method accepts a hashref with column values to pass to the C<INSERT> SQL command.
-It returns the inserted L<DBIx::Lite::Row> object. If you specified an autoincrementing
-primary key and your database driver is supported, L<DBIx::Lite> will retrieve it and 
-populate the resulting object accordingly.
+It returns the inserted L<DBIx::Lite::Row> object (note that the returned object will 
+not contain any value set as default by your RDBMS such as ones populated by triggers).
+If you specified an autoincrementing primary key for this table and your database driver
+is supported, L<DBIx::Lite> will retrieve such value and populate the resulting object 
+accordingly.
 
     my $book = $dbix
         ->table('books')
         ->insert({ name => 'Camel Tales', year => 2012 });
+
+Note that joins have no effect on C<INSERT> commands and DBIx::Lite will throw a warning.
 
 =head2 find_or_insert
 
