@@ -122,7 +122,6 @@ sub select_sql {
     
     # prepare names of columns to be selected
     my @cols = ();
-    my $have_scalar_ref = 0;
     my $cur_table_prefix = $self->_table_alias($self->{cur_table}{name}, 'select');
     foreach my $col (grep defined $_, @{$self->{select}}) {
         # check whether user specified an alias
@@ -134,24 +133,10 @@ sub select_sql {
         # explode the expression if it's a scalar ref
         if (ref $expr eq 'SCALAR') {
             $expr = $$expr;
-            $have_scalar_ref = 1;
         }
         
         # build the column definition according to the SQL::Abstract::More syntax
         push @cols, $expr . ($as ? "|$as" : "");
-    }
-    
-    # always retrieve our primary key if provided and no col name is a scalar ref
-    if (!$have_scalar_ref && (my @pk = $self->{cur_table}->pk)) {
-        # skip this if we are retrieving all columns (me.*)
-        if (not firstval { "$cur_table_prefix.*" eq $_ } @cols) {
-            # prepend table alias to all pk columns
-            $_ =~ s/^[^.]+$/$cur_table_prefix\.$&/ for @pk;
-            
-            # append instead of prepend, otherwise get_column() on a non-PK column 
-            # would return the wrong values
-            push @cols, @pk;
-        }
     }
     
     # joins
@@ -221,6 +206,36 @@ sub select_sth {
     
     my ($sql, @bind) = $self->select_sql;
     return $self->{dbix_lite}->dbh->prepare($sql) || undef, @bind;
+}
+
+sub _select_sth_for_object {
+    my $self = shift;
+    
+    # check whether any of the selected columns is a scalar ref
+    my $cur_table_prefix = $self->_table_alias($self->{cur_table}{name}, 'select');
+    my $have_scalar_ref = 0;
+    my $have_star = 0;
+    foreach my $col (grep defined $_, @{$self->{select}}) {
+        my $expr = ref($col) eq 'ARRAY' ? $col->[0] : $col;
+        if (ref($expr) eq 'SCALAR') {
+            $have_scalar_ref = 1;
+        } elsif ($expr eq "$cur_table_prefix.*") {
+            $have_star = 1;
+        }
+    }
+    
+    # always retrieve our primary key if provided and no col name is a scalar ref
+    # also skip this if we are retrieving all columns (me.*)
+    if (!$have_scalar_ref && !$have_star && (my @pk = $self->{cur_table}->pk)) {
+        # prepend table alias to all pk columns
+        $_ =~ s/^[^.]+$/$cur_table_prefix\.$&/ for @pk;
+        
+        # append instead of prepend, otherwise get_column() on a non-PK column 
+        # would return the wrong values
+        $self = $self->select_also(@pk);
+    }
+    
+    return $self->select_sth;
 }
 
 sub insert_sql {
@@ -382,7 +397,7 @@ sub single {
     
     my $row;
     $self->{dbix_lite}->dbh_do(sub {
-        my ($sth, @bind) = $self->select_sth;
+        my ($sth, @bind) = $self->_select_sth_for_object;
         $sth->execute(@bind);
         $row = $sth->fetchrow_hashref;
     });
@@ -406,7 +421,7 @@ sub all {
     
     my $rows;
     $self->{dbix_lite}->dbh_do(sub {
-        my ($sth, @bind) = $self->select_sth;
+        my ($sth, @bind) = $self->_select_sth_for_object;
         $sth->execute(@bind);
         $rows = $sth->fetchall_arrayref({});
     });
@@ -417,7 +432,7 @@ sub next {
     my $self = shift;
     
     $self->{dbix_lite}->dbh_do(sub {
-        ($self->{sth}, my @bind) = $self->select_sth;
+        ($self->{sth}, my @bind) = $self->_select_sth_for_object;
         $self->{sth}->execute(@bind);
     }) if !$self->{sth};
     

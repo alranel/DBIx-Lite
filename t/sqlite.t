@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 15;
+use Test::More tests => 17;
 use DBIx::Lite;
 
 my $dbix = DBIx::Lite->new;
@@ -17,6 +17,8 @@ $dbix->table('authors')->insert({ id => 2, name => 'John Smith', age => 50 });
 $dbix->dbh->do('CREATE TABLE books (id NUMBER, title TEXT, year NUMBER, author_id NUMBER)');
 $dbix->table('books')->insert({ id => 1, title => 'Camel Tales', year => 2012, author_id => 1 });
 $dbix->table('books')->insert({ id => 2, title => 'Camel Adventures', year => 2010, author_id => 1 });
+$dbix->schema->table('authors')->pk('id');
+$dbix->schema->table('books')->pk('id');
 
 {
     my $count = $dbix->table('books')->count;
@@ -61,6 +63,14 @@ foreach my $table_alias ('', 'me.', 'authors.') {
 
     my @column_names = $dbix->table('books')->column_names;
     is_deeply \@column_names, \@expect, 'column_names in list context';
+}
+
+{
+    my $rs = $dbix->table('books')->search({ year => 2011 })->select('title');
+    my ($sql, @bind) = $rs->select_sql;
+    unlike $sql, qr/\bid\b/, 'no primary key is included in the select_sql() output';
+    my $book = $rs->single;
+    is $book->id, 2, 'primary key is populated when retrieving the object';
 }
 
 $dbix->schema->one_to_many('authors.id' => 'books.author_id', 'author');
