@@ -13,25 +13,24 @@ sub _new {
     my $class = shift;
     my (%params) = @_;
     
-    # optional arguments
     my $self = {
-        joins           => delete $params{joins} || [],
-        where           => delete $params{where} || [],
-        select          => delete $params{select} || ['me.*'],
-        group_by        => delete $params{group_by},
-        having          => delete $params{having},
-        order_by        => delete $params{order_by},
-        limit           => delete $params{limit},
-        offset          => delete $params{offset},
-        rows_per_page   => delete $params{rows_per_page} || 10,
-        page            => delete $params{page},
-        cur_table       => delete $params{cur_table} || $params{table},
+        joins           => [],
+        where           => [],
+        select          => ['me.*'],
+        rows_per_page   => 10,
     };
     
     # required arguments
     for (qw(dbix_lite table)) {
         $self->{$_} = delete $params{$_} or croak "$_ argument needed";
     }
+    
+    # optional arguments
+    for (grep exists($params{$_}), qw(joins where select group_by having order_by
+        limit offset rows_per_page page cur_table)) {
+        $self->{$_} = delete $params{$_};
+    }
+    $self->{cur_table} //= $self->{table};
     
     !%params
         or croak "Unknown options: " . join(', ', keys %params);
@@ -87,7 +86,7 @@ sub pager {
     if (!$self->{pager}) {
         $self->{pager} ||= Data::Page->new;
         $self->{pager}->total_entries($self->page(undef)->count);
-        $self->{pager}->entries_per_page($self->{rows_per_page});
+        $self->{pager}->entries_per_page($self->{rows_per_page} // $self->{pager}->total_entries);
         $self->{pager}->current_page($self->{page});
     }
     return $self->{pager};
@@ -194,7 +193,7 @@ sub select_sql {
     }
     
     # paging overrides limit and offset if any
-    if ($self->{page}) {
+    if ($self->{page} && defined $self->{rows_per_page}) {
         $self->{limit} = $self->{rows_per_page};
         $self->{offset} = $self->pager->skipped;
     }
@@ -293,8 +292,9 @@ sub update_sql {
     }
     
     return $self->{dbix_lite}->{abstract}->update(
-        $self->_table_alias_expr($self->{cur_table}{name}, 'update'),
-        $update_cols, $update_where,
+        -table  => $self->_table_alias_expr($self->{cur_table}{name}, 'update'),
+        -set    => $update_cols,
+        -where  => $update_where,
     );
 }
 
@@ -896,7 +896,8 @@ It returns a L<DBIx::Lite::ResultSet> object to allow for further method chainin
 =head2 rows_per_page
 
 This method accepts the number of rows for each page. It defaults to 10, and it has
-no effect unless L<page> is also called.
+no effect unless L<page> is also called. The undef value means that all records will
+be put on a single page.
 It returns a L<DBIx::Lite::ResultSet> object to allow for further method chaining.
 
     my $rs = $books_rs->rows_per_page(50)->page(3);
