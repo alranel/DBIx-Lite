@@ -552,12 +552,44 @@ sub _inflate_row {
     my $self = shift;
     my ($hashref) = @_;
     
-    my $package = $self->{cur_table}->class || 'DBIx::Lite::Row';
-    return $package->_new(
-        dbix_lite   => $self->{dbix_lite},
-        table       => $self->{cur_table},
-        data        => $hashref,
-    );
+    # get the row package
+    my $package = $self->{cur_table}{class} || 'DBIx::Lite::Row';
+    
+    # get the constructor, if any
+    my $constructor = $self->{cur_table}{class_constructor};
+    if (!defined $constructor && $package->can('new')) {
+        $constructor = 'new';
+    }
+    
+    # create the object
+    my $object;
+    if (defined $constructor) {
+        if (ref($constructor) eq 'CODE') {
+            $object = $constructor->($hashref);
+        } else {
+            $object = $package->$constructor;
+        }
+    } else {
+        $object = {};
+        bless $object, $package;
+    }
+    
+    # get the hashref where we are going to store our data
+    my $storage;
+    if (my $method = $self->{cur_table}{class_storage}) {
+        croak "No ${package}::${method} method exists"
+            if !$package->can($method);
+        $storage = $object->$method;
+    } else {
+        $storage = $object;
+    }
+    
+    # store our data
+    $storage->{dbix_lite}   = $self->{dbix_lite};
+    $storage->{table}       = $self->{cur_table};
+    $storage->{data}        = $hashref;
+    
+    return $object;
 }
 
 sub AUTOLOAD {

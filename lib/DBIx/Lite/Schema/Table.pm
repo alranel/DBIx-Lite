@@ -57,17 +57,28 @@ sub autopk {
 }
 
 sub class {
-    my $self = shift;
-    my $class = shift;
+    my ($self, $class, $constructor, $storage) = @_;
     
-    if ($class) {
-        $self->{class} = $class;
-        return $self;
+    $self->{class} = $class;
+    $self->{class_constructor} = $constructor;
+    $self->{class_storage} = $storage;
+    
+    return undef if !$class;
+    
+    # make the custom class inherit from our base
+    if (!$class->isa('DBIx::Lite::Row')) {
+        no strict 'refs';
+        push @{"${class}::ISA"}, 'DBIx::Lite::Row';
     }
     
-    return undef if !$self->{class};
-    $self->_init_package($self->{class}, 'DBIx::Lite::Row');
-    return $self->{class};
+    # install the storage provider
+    if ($storage) {
+        no strict 'refs';
+        no warnings 'redefine';
+        *{ "${class}::__dbix_lite_row_storage" } = sub { $_[0]->$storage };
+    }
+    
+    return $class;
 }
 
 sub resultset_class {
@@ -79,34 +90,15 @@ sub resultset_class {
         return $self;
     }
     
-    return undef if !$self->{resultset_class};
-    $self->_init_package($self->{resultset_class}, 'DBIx::Lite::ResultSet');
-    return $self->{resultset_class};
-}
-
-sub _init_package {
-    my $self = shift;
-    my ($package, $base) = @_;
+    return undef if !$class;
     
-    return if $package->isa($base);
-    
-    # check that no $base method would be overwritten by the package
-    {
+    # make the custom class inherit from our base
+    if (!$class->isa('DBIx::Lite::ResultSet')) {
         no strict 'refs';
-        my %subroutines = map { $_ => 1 }
-            grep defined &{"$package\::$_"}, keys %{"$package\::"};
-        
-        my @base_subroutines = grep defined &{"$base\::$_"}, keys %{"$base\::"};
-        for (@base_subroutines) {
-            croak "$package defines a '$_' subroutine/method; cannot use it as custom class"
-                if $subroutines{$_};
-        }
+        push @{"${class}::ISA"}, 'DBIx::Lite::ResultSet';
     }
     
-    {
-        no strict 'refs';
-        push @{$package."::ISA"}, $base;
-    }
+    return $class;
 }
 
 1;
@@ -158,8 +150,8 @@ DBIx::Lite will create that class for you.
     my $book = $dbix->table('books')->find({ id => 2 });
     # $book is a My::Book
 
-The class will subclass L<DBIx::Lite::Row>. You can also supply an existing package
-name or declare your methods inline:
+The class will subclass L<DBIx::Lite::Row>. You can declare your additional methods
+inline:
 
     $dbix->schema->table('books')->class('My::Book');
     
@@ -167,6 +159,48 @@ name or declare your methods inline:
         my $self = shift;
         return $self->page_count;
     }
+
+If you want to use an existing class you might need to provide DBIx::Lite with some glue 
+for correctly inflating objects without messing with your class storage. The C<class()> 
+method accepts three more optional arguments:
+
+    $dbix->schema->table('books')->class('My::Book', $constructor, $storage, $inflator);
+
+=over
+
+=item C<$constructor> is the class method to be called as constructor. By default Slic3r will 
+call the C<new> constructor if it exists, otherwise it will create a hashref and bless it
+into the supplied class. The specified constructor is called without arguments.
+
+    $dbix->schema->table('books')->class('My::Book', 'new');  # default behavior
+    $dbix->schema->table('books')->class('My::Book', 'new_from_db');
+
+If your constructor needs values from the database row, you can supply a coderef which 
+instantiates the object. It will be supplied a hashref containing the row data.
+
+    $dbix->schema->table('books')->class('My::Book', sub {
+        my $row_data = shift;
+        return My::Book->new(title => $row_data->{book_title});
+    });
+
+=item C<$storage> is an object method which returns a hashref where DBIx::Lite can store
+its data. By default DBIx::Lite will assume your object is a blessed hashref and it will
+store its data inside it. If you're concerned about possible conflicts with your object
+data, you can define a method which returns the storage location.
+
+    package My::Book;
+    use Moo;
+    
+    # create a member for DBIx::Lite data
+    has '_row' => (is => 'ro', default => sub { {} });
+    
+    package main;
+    $dbix->schema->table('books')->class('My::Book', 'new', '_row');
+
+=item C<$inflator> is an object method to be called after the object was created and 
+DBIx::Lite has stored its data. You might need to define such a method if you want to 
+
+=back
 
 =head2 resultset_class
 
