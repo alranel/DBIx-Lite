@@ -37,7 +37,7 @@ sub table {
 
 sub one_to_many {
     my $self = shift;
-    my ($from, $to, $their_accessor) = @_;
+    my ($from, $to, $accessors) = @_;
     
     $from && $from =~ /^(.+)\.(.+)$/
         or croak "Relationship keys must be defined in table.column format";
@@ -49,9 +49,19 @@ sub one_to_many {
     my $to_table = $self->table($1);
     my $to_key = $2;
     
-    $from_table->{has_many}{ $to_table->{name} } = [ $to_table->{name}, { $from_key => $to_key } ];
-    $to_table->{has_one}{ $their_accessor } = [ $from_table->{name}, { $to_key => $from_key } ]
-        if $their_accessor;
+    my $from_table_accessor = $to_table->{name};
+    my $to_table_accessor;
+    if ($accessors) {
+        if (ref $accessors eq 'ARRAY') {
+            ($from_table_accessor, $to_table_accessor) = @$accessors;
+        } else {
+            $to_table_accessor = $accessors;
+        }
+    }
+    
+    $from_table->{has_many}{ $from_table_accessor } = [ $to_table->{name}, { $from_key => $to_key } ];
+    $to_table->{has_one}{ $to_table_accessor } = [ $from_table->{name}, { $to_key => $from_key } ]
+        if $to_table_accessor;
 }
 
 1;
@@ -101,11 +111,17 @@ This will have the following effects:
 =back
 
 If you supply a third argument, it will be used to set up the reverse accessor
-method. For example:
+method. For example this will install a C<author> accessor method in the I<books>
+Result objects:
 
     $schema->one_to_many('authors.id' => 'books.author_id', 'author');
 
-will install a C<author> accessor method in the books Result objects.
+If you also want to customize the accessor for the first table, you can supply 
+an arrayref with both accessor names. This can be needed when the second table
+has two fields referencing the same table:
+
+    $schema->one_to_many('authors.id' => 'books.author_id', [ 'books_as_author', 'author' ]);
+    $schema->one_to_many('authors.id' => 'books.curator_id', [ 'books_as_curator', 'curator' ]);
 
 Note that relationships can be chained:
 
