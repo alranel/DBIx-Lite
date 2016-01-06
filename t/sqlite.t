@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 20;
 use DBIx::Lite;
 
 my $dbix = DBIx::Lite->new;
@@ -81,6 +81,17 @@ $dbix->schema->one_to_many('authors.id' => 'books.author_id', 'author');
     isa_ok $author, 'DBIx::Lite::Row';
     is $author->name, 'Larry Wall';
     is $author->books->count, 2;
+}
+
+$dbix->schema->one_to_many('authors.id' => 'books.author_id', ['published_books' => 'author']);
+
+{
+    my $book = $dbix->table('books')->find({ id => 1 });
+    my $author = $book->author;
+    isa_ok $author, 'DBIx::Lite::Row';
+    is $author->name, 'Larry Wall';
+    my $books = $author->published_books;
+    is $books->count, 2;
 }
 
 __END__
