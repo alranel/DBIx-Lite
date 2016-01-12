@@ -89,7 +89,8 @@ sub resultset_class {
         $self->{resultset_class} = $class;
         return $self;
     }
-    
+
+    $class =  $self->{resultset_class};
     return undef if !$class;
     
     # make the custom class inherit from our base
