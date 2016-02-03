@@ -27,7 +27,7 @@ sub _new {
     
     # optional arguments
     for (grep exists($params{$_}), qw(joins where select group_by having order_by
-        limit offset rows_per_page page cur_table)) {
+        limit offset for_update rows_per_page page cur_table)) {
         $self->{$_} = delete $params{$_};
     }
     $self->{cur_table} //= $self->{table};
@@ -55,6 +55,14 @@ for my $methname (qw(group_by having order_by limit offset rows_per_page page)) 
         # return object
         $new_self;
     };
+}
+
+sub for_update {
+    my ($self) = @_;
+    
+    my $new_self = $self->_clone;
+    $new_self->{for_update} = 1;
+    $new_self;
 }
 
 # return a clone of this object
@@ -189,7 +197,7 @@ sub select_sql {
             unless ref $self->{order_by} eq 'ARRAY';
     }
     
-    return $self->{dbix_lite}->{abstract}->select(
+    my ($sql, @bind) = $self->{dbix_lite}->{abstract}->select(
         -columns    => [ uniq @cols ],
         -from       => [ -join => $self->{table}{name} . "|me", @joins ],
         -where      => { -and => $self->{where} },
@@ -199,6 +207,12 @@ sub select_sql {
         $self->{limit}      ? (-limit       => $self->{limit})      : (),
         $self->{offset}     ? (-offset      => $self->{offset})     : (),
     );
+    
+    if ($self->{for_update}) {
+        $sql .= " FOR UPDATE";
+    }
+    
+    return ($sql, @bind);
 }
 
 sub select_sth {
@@ -713,6 +727,21 @@ See the L<page> method too if you want an easier interface for pagination.
 It returns a L<DBIx::Lite::ResultSet> object to allow for further method chaining.
 
     my $rs = $books_rs->limit(5)->offset(10);
+
+=head2 for_update
+
+This method accepts no argument. It enables the addition of the SQL C<FOR UPDATE>
+clause at the end of the query, which allows to fetch data and lock it for updating.
+It returns a L<DBIx::Lite::ResultSet> object to allow for further method chaining.
+Note that no records are actually locked until the query is executed with L<single()>,
+L<all()> or L<next()>.
+
+    $dbix->txn(sub {
+        my $author = $dbix->table('authors')->find($id)->for_update->single
+            or die "Author not found";
+        
+        $author->update({ age => 30 });
+    });
 
 =head2 inner_join
 
