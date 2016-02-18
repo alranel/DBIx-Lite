@@ -169,7 +169,7 @@ method accepts three more optional arguments:
 
 =over
 
-=item C<$constructor> is the class method to be called as constructor. By default Slic3r will 
+=item C<$constructor> is the class method to be called as constructor. By default DBIx::Lite will 
 call the C<new> constructor if it exists, otherwise it will create a hashref and bless it
 into the supplied class. The specified constructor is called without arguments.
 
@@ -185,9 +185,9 @@ instantiates the object. It will be supplied a hashref containing the row data.
     });
 
 =item C<$storage> is an object method which returns a hashref where DBIx::Lite can store
-its data. By default DBIx::Lite will assume your object is a blessed hashref and it will
-store its data inside it. If you're concerned about possible conflicts with your object
-data, you can define a method which returns the storage location.
+its data. This might be useful because by default DBIx::Lite will assume your object is a 
+blessed hashref and it will store its data inside it, but if you're concerned about possible 
+conflicts with your object data you can define a method which returns the storage location.
 
     package My::Book;
     use Moo;

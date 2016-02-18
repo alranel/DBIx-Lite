@@ -595,6 +595,8 @@ sub _inflate_row {
         croak "No ${package}::${method} method exists"
             if !$package->can($method);
         $storage = $object->$method;
+        croak "${package}::${method}() did not return a hashref"
+            if ref($storage) ne 'HASH';
     } else {
         $storage = $object;
     }
