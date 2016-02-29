@@ -51,6 +51,7 @@ sub insert_related {
     my $self = shift;
     my ($rel_name, $insert_cols) = @_;
     $rel_name or croak "insert_related() requires a table name";
+    $insert_cols //= {};
     my $selfs = $self->__dbix_lite_row_storage;
     
     my ($table_name, $my_key, $their_key) = $self->_relationship($rel_name)
