@@ -75,7 +75,14 @@ sub class {
     if ($storage) {
         no strict 'refs';
         no warnings 'redefine';
-        *{ "${class}::__dbix_lite_row_storage" } = sub { $_[0]->$storage };
+        *{ "${class}::__dbix_lite_row_storage" } = sub {
+            my ($row) = @_;
+            
+            croak "$class does not provide a $storage method"
+                if !$row->can($storage);
+            
+            return $row->$storage;
+        };
     }
     
     return $class;
