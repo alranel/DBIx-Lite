@@ -541,8 +541,8 @@ sub _table_alias {
     
     if ($table_name eq $self->{table}{name}) {
         if ($op eq 'select'
-            || ($op eq 'update' && $driver_name =~ /^(?:MySQL|Pg)$/)
-            || ($op eq 'delete' && $driver_name eq 'Pg')) {
+            || ($op eq 'update' && $driver_name =~ /^(?:MySQL|Pg)$/i)
+            || ($op eq 'delete' && $driver_name =~ /^Pg$/i)) {
             return 'me';
         }
     }
