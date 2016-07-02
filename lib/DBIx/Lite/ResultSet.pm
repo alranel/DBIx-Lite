@@ -122,6 +122,13 @@ sub find {
     return $self->search($where)->single;
 }
 
+sub where_sql {
+    my $self = shift;
+    
+    my ($sql, @bind) = $self->{dbix_lite}->{abstract}->where({ -and => $self->{where} });
+    return ($sql, @bind);
+}
+
 sub select_sql {
     my $self = shift;
     
@@ -962,6 +969,15 @@ also works when no C<$dbh> or connection data is supplied to L<DBIx::Lite>.
 This method prepares the SQL C<DELETE> statement and returns it along with bind values.
 
     my ($sth, @bind) = $books_rs->delete_sth;
+
+=head2 where_sql
+
+This method generates just the C<WHERE> clause that you can embed in other statements.
+It will return a list having the SQL string as the first item, and bind values as 
+subsequent values. No query is executed. This method also works when no C<$dbh> or 
+connection data is supplied to L<DBIx::Lite>.
+
+    my ($sql, @bind) = $books_rs->where_sql;
 
 =head1 PAGING
 
