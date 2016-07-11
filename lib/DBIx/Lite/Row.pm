@@ -120,7 +120,9 @@ first Result objects by calling one of retrieval methods on a L<DBIx::Lite::Resu
 object.
 
 Accessor methods will be provided automatically for all retrieved columns and for 
-related tables (see docs for L<DBIx::Lite::Schema>).
+related tables (see docs for L<DBIx::Lite::Schema>). If a column does not exist, 
+calling its method will die with an exception (use L<get> if you want to handle 
+this gracefully).
 
     my $book = $dbix->table('books')->find({ id => 10 });
     print $book->title;
@@ -132,6 +134,13 @@ This method returns a hashref containing column values.
 
     my $hashref = $book->hashref;
     print "$_ = $hashref->{$_}\n" for keys %$hashref;
+
+=head2 get
+
+This method accepts a column names and returns its value. If the column does not 
+exist, it returns undef.
+
+    print $book->get('title');
 
 =head2 update
 
