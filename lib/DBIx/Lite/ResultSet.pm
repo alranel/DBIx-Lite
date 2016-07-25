@@ -117,6 +117,9 @@ sub find {
     # value(s) are the key(s) of the primary key column(s) defined for
     # this table
     if (!ref $where && (my @pk = $self->{table}->pk)) {
+        # prepend table alias to all pk columns
+        $_ =~ s/^[^.]+$/me\.$&/ for @pk;
+        
         $where = { map +(shift(@pk) => $_), @_ };
     }
     return $self->search($where)->single;
