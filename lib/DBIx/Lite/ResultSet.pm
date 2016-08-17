@@ -109,6 +109,14 @@ sub search {
     $new_self;
 }
 
+sub clear_search {
+    my $self = shift;
+    
+    my $new_self = $self->_clone;
+    @{$new_self->{where}} = ();
+    $new_self;
+}
+
 sub find {
     my $self = shift;
     my ($where) = @_;
@@ -543,6 +551,14 @@ sub _join {
     $new_self;
 }
 
+sub clear_joins {
+    my $self = shift;
+    
+    my $new_self = $self->_clone;
+    @{$new_self->{joins}} = ();
+    $new_self;
+}
+
 sub _table_alias {
     my $self = shift;
     my ($table_name, $op) = @_;
@@ -667,6 +683,11 @@ Multiple C<search()> methods can be chained; they will be merged using the
 C<AND> operator:
 
     my $rs = $books_rs->search({ year => 2012 })->search({ genre => 'philosophy' });
+
+=head2 clear_search
+
+This method returns a L<DBIx::Lite::ResultSet> object based on the current one
+but with no search conditions.
 
 =head2 select
 
@@ -796,6 +817,11 @@ used, thus allowing to join the same table multiple times using different table 
 
 This method works like L<inner join> except it applies a C<LEFT JOIN> instead of an
 C<INNER JOIN>.
+
+=head2 clear_joins
+
+This method returns a L<DBIx::Lite::ResultSet> object based on the current one
+but with no joins.
 
 =head1 RETRIEVING RESULTS
 
