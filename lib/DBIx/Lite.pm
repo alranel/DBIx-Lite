@@ -129,6 +129,12 @@ sub _autopk {
     }
 }
 
+sub _quote {
+    my $self = shift;
+    
+    return $self->{abstract}->_quote(@_);
+}
+
 1;
 
 =head1 SYNOPSIS

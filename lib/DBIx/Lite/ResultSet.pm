@@ -143,9 +143,6 @@ sub where_sql {
 sub select_sql {
     my $self = shift;
     
-    # import the quoting subroutine from SQL::Abstract
-    my $quote = sub { $self->{dbix_lite}->{abstract}->_quote(@_) };
-    
     # prepare names of columns to be selected
     my @cols = ();
     my $cur_table_prefix = $self->_table_alias($self->{cur_table}{name}, 'select');
@@ -187,7 +184,7 @@ sub select_sql {
             $col1 =~ s/^$join->{cur_table}{name}\./$left_table_prefix./;
             
             # prepend table alias to the column of the second table
-            $col2 = ($table_alias || $quote->($table_name)) . ".$col2"
+            $col2 = ($table_alias || $self->{dbix_lite}->_quote($table_name)) . ".$col2"
                 unless ref $col2 || $col2 =~ /\./;
             
             # in case the second item is a scalar reference (literal SQL)
@@ -277,6 +274,12 @@ sub insert_sql {
     
     if (@{$self->{joins}}) {
         warn "Attempt to call ->insert() after joining other tables\n";
+    }
+    
+    if (!%$insert_cols && $self->{dbix_lite}->driver_name eq 'Pg') {
+        # Postgres doesn't support the VALUES () syntax
+        return sprintf "INSERT INTO %s DEFAULT VALUES",
+            $self->{dbix_lite}->_quote($self->{table}{name});
     }
     
     return $self->{dbix_lite}->{abstract}->insert(
