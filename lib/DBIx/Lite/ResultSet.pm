@@ -27,7 +27,7 @@ sub _new {
     
     # optional arguments
     for (grep exists($params{$_}), qw(joins where select group_by having order_by
-        limit offset for_update rows_per_page page cur_table)) {
+        limit offset for rows_per_page page cur_table)) {
         $self->{$_} = delete $params{$_};
     }
     $self->{cur_table} //= $self->{table};
@@ -60,8 +60,14 @@ for my $methname (qw(group_by having order_by limit offset rows_per_page page)) 
 sub for_update {
     my ($self) = @_;
     
+    return $self->for('UPDATE');
+}
+
+sub for {
+    my ($self, $for) = @_;
+    
     my $new_self = $self->_clone;
-    $new_self->{for_update} = 1;
+    $new_self->{for} = $for;
     $new_self;
 }
 
@@ -223,8 +229,8 @@ sub select_sql {
         $self->{offset}     ? (-offset      => $self->{offset})     : (),
     );
     
-    if ($self->{for_update}) {
-        $sql .= " FOR UPDATE";
+    if ($self->{for}) {
+        $sql .= " FOR " . $self->{for};
     }
     
     return ($sql, @bind);
@@ -779,6 +785,17 @@ L<all()> or L<next()>.
         
         $author->update({ age => 30 });
     });
+
+This is actually a shortcut for the L<for> method described below:
+
+    my $authors = $dbix->table('authors')->for('UPDATE');
+
+=head2 for
+
+This method accepts a string which will be appended to the C<FOR> keyword at the end
+of the SQL query.
+
+    my $authors = $dbix->table('authors')->for('UPDATE SKIP LOCKED');
 
 =head2 inner_join
 
