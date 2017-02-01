@@ -41,6 +41,7 @@ sub connect {
     
     $self->{connector} = DBIx::Connector->new(@_);
     $self->{dbh} = undef;
+    $self->dbh(1) or return undef;
     $self->dbh->{HandleError} = sub { croak $_[0] };
     
     $self;
@@ -71,8 +72,10 @@ sub dbh {
     my $self = shift;
     my ($dont_die) = @_;
     
-    return $self->{dbh} ? $self->{dbh}
+    my $dbh = $self->{dbh} ? $self->{dbh}
         : $self->{connector} ? $self->{connector}->dbh
+        : undef;
+    return $dbh ? $dbh
         : $dont_die ? undef
         : croak "No database handle or DBIx::Connector object provided";
 }
