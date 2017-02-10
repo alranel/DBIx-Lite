@@ -27,7 +27,7 @@ sub _new {
     
     # optional arguments
     for (grep exists($params{$_}), qw(joins where select group_by having order_by
-        limit offset for rows_per_page page cur_table)) {
+        limit offset for rows_per_page page cur_table with from)) {
         $self->{$_} = delete $params{$_};
     }
     $self->{cur_table} //= $self->{table};
@@ -40,7 +40,7 @@ sub _new {
 }
 
 # create setters
-for my $methname (qw(group_by having order_by limit offset rows_per_page page)) {
+for my $methname (qw(group_by having order_by limit offset rows_per_page page from)) {
     no strict 'refs';
     *$methname = sub {
         my $self = shift;
@@ -49,7 +49,7 @@ for my $methname (qw(group_by having order_by limit offset rows_per_page page)) 
         my $new_self = $self->_clone;
         
         # set new values
-        $new_self->{$methname} = $methname =~ /^(group_by|order_by)$/ ? [@_] : $_[0];
+        $new_self->{$methname} = $methname =~ /^(group_by|order_by|from)$/ ? [@_] : $_[0];
         $new_self->{pager}->current_page($_[0]) if $methname eq 'page' && $new_self->{pager};
         
         # return object
@@ -93,6 +93,24 @@ sub select {
 sub select_also {
     my $self = shift;
     return $self->select(@{$self->{select}}, @_);
+}
+
+sub with {
+    my $self = shift;
+    my %with = @_;
+    
+    croak "with() requires a hash of scalarrefs or refs to arrayrefs"
+        if grep { !ref($_) eq 'SCALAR' } values %with;
+    
+    my $new_self = $self->_clone;
+    $new_self->{with} = %with ? {%with} : undef;
+    
+    $new_self;
+}
+
+sub with_also {
+    my $self = shift;
+    return $self->with(%{$self->{with}}, @_);
 }
 
 sub pager {
@@ -157,7 +175,7 @@ sub select_sql {
         my ($expr, $as) = ref $col eq 'ARRAY' ? @$col : ($col, undef);
         
         # prepend table alias if column name doesn't contain one already
-        $expr =~ s/^[^.]+$/$cur_table_prefix\.$&/ if !ref($expr);
+        $expr =~ s/^[^.]+$/$cur_table_prefix\.$&/ if !ref($expr) && !$self->{from};
         
         # explode the expression if it's a scalar ref
         if (ref $expr eq 'SCALAR') {
@@ -206,6 +224,14 @@ sub select_sql {
         push @joins, $table_name . ($table_alias ? "|$table_alias" : "");
     }
     
+    # from
+    my @from = ();
+    if ($self->{from}) {
+        @from = @{$self->{from}};
+    } else {
+        @from = (-join => $self->{table}{name} . "|me", @joins);
+    }
+    
     # paging overrides limit and offset if any
     if ($self->{page} && defined $self->{rows_per_page}) {
         $self->{limit} = $self->{rows_per_page};
@@ -220,17 +246,30 @@ sub select_sql {
     
     my ($sql, @bind) = $self->{dbix_lite}->{abstract}->select(
         -columns    => [ uniq @cols ],
-        -from       => [ -join => $self->{table}{name} . "|me", @joins ],
+        -from       => [ @from ],
         -where      => { -and => $self->{where} },
         $self->{group_by}   ? (-group_by    => $self->{group_by})   : (),
         $self->{having}     ? (-having      => $self->{having})     : (),
         $self->{order_by}   ? (-order_by    => $self->{order_by})   : (),
         $self->{limit}      ? (-limit       => $self->{limit})      : (),
         $self->{offset}     ? (-offset      => $self->{offset})     : (),
+        $self->{for}        ? (-for         => $self->{for})     : (),
     );
     
-    if ($self->{for}) {
-        $sql .= " FOR " . $self->{for};
+    if ($self->{with}) {
+        my @with_sql = ();
+        foreach my $alias (keys %{$self->{with}}) {
+            my $def = $self->{with}{$alias};
+            
+            if (ref $$def eq 'ARRAY') {
+                my ($wsql, @wbind) = @$$def;
+                push @with_sql, sprintf "%s AS (%s)", $alias, $wsql;
+                unshift @bind, @wbind;
+            } else {
+                push @with_sql, sprintf "%s AS (%s)", $alias, $$def;
+            }
+        }
+        $sql = sprintf 'WITH %s %s', join(', ', @with_sql), $sql;
     }
     
     return ($sql, @bind);
@@ -835,13 +874,52 @@ used, thus allowing to join the same table multiple times using different table 
 
 =head2 left_join
 
-This method works like L<inner join> except it applies a C<LEFT JOIN> instead of an
+This method works like L<inner_join> except it applies a C<LEFT JOIN> instead of an
 C<INNER JOIN>.
 
 =head2 clear_joins
 
 This method returns a L<DBIx::Lite::ResultSet> object based on the current one
 but with no joins.
+
+=head2 with
+
+This method accepts a hash of CTE definitions supported by PostgreSQL and other
+RDBMS. Definitions can be supplied as scalar refs or refs to arrayrefs:
+
+    my $authors = $dbix->table('authors')->with(
+        t  => \"SELECT * FROM foo",
+        t2 => \"SELECT * FROM bar",
+    );
+    # The above will produce:
+    # WITH (t AS (SELECT * FROM foo), t2 AS (SELECT * FROM bar))
+    # SELECT * FROM authors
+    
+    my $authors = $dbix->table('authors')
+        ->with(t => \["SELECT * FROM foo WHERE bar = ?", $bindval]);
+    
+    my $authors = $dbix->table('authors')
+        ->with(t => \[ $dbix->table('foo')->select_sql ]);
+
+Subsequent calls to this method will replace the entire with block.
+
+=head2 with_also
+
+This methods works like L<with> but it adds CTEs to the list instead of 
+replacing the existing ones (except when the same alias is reused).
+
+=head2 from
+
+This method allows to replace the C<FROM> expression in order to use
+subqueries or CTEs.
+
+    my $books = $dbix->table('books')
+        ->with(t => \[ $dbix->table('books')->select_sql ])
+        ->from('t');
+
+If you supply a scalarref, it will be treated like literal SQL.
+
+Usage of L<from> is not currently compatible with joins.
 
 =head1 RETRIEVING RESULTS
 
