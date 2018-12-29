@@ -109,6 +109,12 @@ sub AUTOLOAD {
         $method, ref($self), $selfs->{table}{name};
 }
 
+sub db {
+    my ($self) = @_;
+
+    return $self->__dbix_lite_row_storage->{dbix_lite};
+}
+
 sub DESTROY {}
 
 1;
@@ -167,6 +173,10 @@ object.
 
     $dbix->schema->one_to_many('authors.id' => 'books.author_id');
     my $book = $author->insert_related('books', { title => 'Camel Tales' });
+
+=head2 db
+
+This method returns the L<DBIx::Lite> object from which this record was retrieved.
 
 =for Pod::Coverage get _pk
 
