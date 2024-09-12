@@ -57,6 +57,14 @@ for my $methname (qw(group_by having order_by limit offset rows_per_page page fr
     };
 }
 
+sub distinct {
+    my ($self, $value) = @_;
+    
+    my $new_self = $self->_clone;
+    $new_self->{distinct} = !defined($value) || $value;
+    $new_self;
+}
+
 sub for_update {
     my ($self) = @_;
     
@@ -245,7 +253,7 @@ sub select_sql {
     }
     
     my ($sql, @bind) = $self->{dbix_lite}->{abstract}->select(
-        -columns    => [ uniq @cols ],
+        -columns    => [ ($self->{distinct} ? '-distinct' : ()), uniq @cols ],
         -from       => [ @from ],
         -where      => { -and => $self->{where} },
         $self->{group_by}   ? (-group_by    => $self->{group_by})   : (),
@@ -809,6 +817,13 @@ See the L<page> method too if you want an easier interface for pagination.
 It returns a L<DBIx::Lite::ResultSet> object to allow for further method chaining.
 
     my $rs = $books_rs->limit(5)->offset(10);
+
+=head2 distinct
+
+This method sets the DISTINCT flag in the SQL query. To turn if off again, pass a false
+value.
+
+    my $authors = $dbix->table('authors')->select('name')->distinct;
 
 =head2 for_update
 
