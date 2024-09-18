@@ -75,7 +75,7 @@ sub table {
 sub dbh {
     my $self = shift;
     my ($dont_die) = @_;
-    use XXX; ZZZ "here";
+    
     my $dbh = $self->{dbh} ? $self->{dbh}
         : $self->{connector} ? $self->{connector}->dbh
         : undef;
