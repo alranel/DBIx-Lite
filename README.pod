@@ -8,13 +8,13 @@ DBIx::Lite - Chained and minimal ORM
 
 =head1 VERSION
 
-version 0.34
+version 0.35
 
 =head1 SYNOPSIS
 
     use DBIx::Lite;
     
-    my $dbix = DBIx::Lite->new;
+    my $dbix = DBIx::Lite->new(driver_name => 'Pg');  # disconnected mode
     my $dbix = DBIx::Lite->new(dbh => $dbh);
     my $dbix = DBIx::Lite->connect("dbi:Pg:dbname=$db", $user, $passwd, {pg_enable_utf8 => 1});
     
@@ -91,10 +91,13 @@ Such goals/key features are:
 
 Instantiating a DBIx::Lite object isn't more difficult than just writing:
 
-    my $dbix = DBIx::Lite->new;
+    my $dbix = DBIx::Lite->new(driver_name => 'Pg');
 
-This will give you an unconnected object, that you can use to generate SQL commands using
-the L<select_sql()>, L<insert_sql()>, L<update_sql()> and L<delete_sql()> methods.
+Driver name is the name of the DBI module you expect to use. We need to specify it as the
+generated SQL will depend on the driver.
+This constructor will give you an unconnected object, that you can use to generate SQL commands using
+the L<select_sql()>, L<insert_sql()>, L<update_sql()> and L<delete_sql()> methods without 
+executing it.
 
 If you want to connect to a database you can pass a pre-connected database handle with the 
 C<dbh> argument or you can supply your connection options to the C<connect()> method. All
