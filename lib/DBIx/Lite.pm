@@ -24,6 +24,10 @@ sub new {
         connector   => delete $params{connector},
         dbh         => delete $params{dbh},
     };
+
+    if (!$params{connector} && $params{driver_name}) {
+        $self->{connector} = DBIx::Connector->new('DBI:' . delete $params{driver_name});
+    }
     
     !%params
         or croak "Unknown options: " . join(', ', keys %params);
@@ -71,7 +75,7 @@ sub table {
 sub dbh {
     my $self = shift;
     my ($dont_die) = @_;
-    
+    use XXX; ZZZ "here";
     my $dbh = $self->{dbh} ? $self->{dbh}
         : $self->{connector} ? $self->{connector}->dbh
         : undef;
@@ -112,7 +116,7 @@ sub txn {
 sub driver_name {
     my $self = shift;
     
-    return $self->dbh->{Driver}->{Name};
+    return $self->{connector} ? $self->{connector}->driver_name : $self->dbh->{Driver}->{Name};
 }
 
 sub _autopk {
@@ -144,7 +148,7 @@ sub _quote {
 
     use DBIx::Lite;
     
-    my $dbix = DBIx::Lite->new;
+    my $dbix = DBIx::Lite->new(driver_name => 'Pg');  # disconnected mode
     my $dbix = DBIx::Lite->new(dbh => $dbh);
     my $dbix = DBIx::Lite->connect("dbi:Pg:dbname=$db", $user, $passwd, {pg_enable_utf8 => 1});
     
@@ -221,10 +225,13 @@ Such goals/key features are:
 
 Instantiating a DBIx::Lite object isn't more difficult than just writing:
 
-    my $dbix = DBIx::Lite->new;
+    my $dbix = DBIx::Lite->new(driver_name => 'Pg');
 
-This will give you an unconnected object, that you can use to generate SQL commands using
-the L<select_sql()>, L<insert_sql()>, L<update_sql()> and L<delete_sql()> methods.
+Driver name is the name of the DBI module you expect to use. We need to specify it as the
+generated SQL will depend on the driver.
+This constructor will give you an unconnected object, that you can use to generate SQL commands using
+the L<select_sql()>, L<insert_sql()>, L<update_sql()> and L<delete_sql()> methods without 
+executing it.
 
 If you want to connect to a database you can pass a pre-connected database handle with the 
 C<dbh> argument or you can supply your connection options to the C<connect()> method. All
