@@ -258,8 +258,8 @@ sub select_sql {
 
     if ($self->{distinct}) {
         my $distinct_sql;
-        if (@{$self->distinct} > 0) {
-            my @cols = map { ref($_) ? $_ : $self->{dbix_lite}->_quote($_) } @{$self->distinct};
+        if (@{$self->{distinct}} > 0) {
+            my @cols = map { ref($_) ? $$_ : $self->{dbix_lite}->_quote($_) } @{$self->{distinct}};
             $distinct_sql = sprintf "DISTINCT ON (%s)", join ', ', @cols;
         } else {
             $distinct_sql = "DISTINCT";
