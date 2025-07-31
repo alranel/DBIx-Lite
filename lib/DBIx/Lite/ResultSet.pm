@@ -6,6 +6,7 @@ use Carp qw(croak);
 use Clone qw(clone);
 use Data::Page;
 use List::MoreUtils qw(uniq firstval);
+use version 0.77;
 use vars qw($AUTOLOAD);
 $Carp::Internal{$_}++ for __PACKAGE__;
 
@@ -464,8 +465,8 @@ sub delete_sql {
     }
     
     return $self->{dbix_lite}->{abstract}->delete(
-        $self->_table_alias_expr($self->{cur_table}{name}, 'delete'),
-        $delete_where,
+        -from => $self->_table_alias_expr($self->{cur_table}{name}, 'delete'),
+        -where => $delete_where,
     );
 }
 
@@ -646,13 +647,24 @@ sub _table_alias_expr {
     my ($table_name, $op) = @_;
     
     my $table_alias = $self->_table_alias($table_name, $op);
+
     if ($table_name eq $table_alias) {
         # foo
         return $table_name;
     } else {
-        # foo AS my_foo
-        return $self->{dbix_lite}->{abstract}->table_alias($table_name, $table_alias);
+
+        # As of SQL::Abstract::More v1.44, table alias syntax works for select, update, delete
+        my $supported_op = $op eq 'select' || $op eq 'update' || $op eq 'delete';
+        if ( $supported_op && version->parse(SQL::Abstract::More->VERSION) >= version->parse('1.44') ) {
+            return "$table_name|$table_alias";
+        }
+        else {
+            # foo AS my_foo
+            return $self->{dbix_lite}->{abstract}->table_alias($table_name, $table_alias);
+        }
+
     }
+
 }
 
 sub _inflate_row {
