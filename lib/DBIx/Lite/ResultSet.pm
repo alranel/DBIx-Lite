@@ -436,12 +436,36 @@ sub find_or_insert {
     my $cols = shift;
     ref $cols eq 'HASH' or croak "find_or_insert() requires a hashref";
     
+    my $sub;
     my $object;
-    $self->{dbix_lite}->txn(sub {
-        if (!($object = $self->find($cols))) {
-            $object = $self->insert($cols);
-        }
-    });
+
+    my $driver_name = $self->{dbix_lite}->driver_name;
+
+    # does the database support the PosttgreSQL "ON CONFLICT ... DO
+    # ..." UPSERT clause as well as the RETURNING clause
+    my $pg_upsert =
+      ( $driver_name eq 'Pg' && $self->{dbix_lite}->dbh->{pg_server_version} > 10_00_00 )
+      ||
+      ($driver_name eq 'SQLite' && DBD::SQLite::Constants::SQLITE_VERSION_NUMBER() >= 3_035_000 );
+
+    if ( $pg_upsert ) {
+        $sub = sub {
+            my ( $sql, @bind ) = $self->insert_sql( $cols );
+            $sql .= ' on conflict do nothing returning *';
+            my $sth = $self->{dbix_lite}->dbh->prepare( $sql );
+            return if !$sth->execute( @bind );
+            my $hash = $sth->fetchrow_hashref;
+            $object = $hash ? $self->_inflate_row( $hash ) : $self->find( $cols );
+        };
+    }
+    else {
+        $sub = sub {
+            if (!($object = $self->find($cols))) {
+                $object = $self->insert($cols);
+            }
+        };
+    }
+    $self->{dbix_lite}->txn( $sub );
     return $object;
 }
 
