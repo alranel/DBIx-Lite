@@ -130,7 +130,11 @@ sub _autopk {
     } elsif ($driver_name eq 'SQLite') {
         return $self->dbh_do(sub { +($_->selectrow_array('SELECT LAST_INSERT_ROWID()'))[0] });
     } elsif ($driver_name eq 'Pg') {
-        return $self->dbh_do(sub { $_->last_insert_id( undef, undef, $table_name, undef ) });
+        my ( $schema, $name ) = $table_name =~ /^(?:([^.]+)[.])?([^.]+)$/;
+        # if RE fails to match, just pass in the original name and let DBD::Pg handle it
+        $name //= $table_name;
+        return $self->dbh_do( sub { $_->last_insert_id( undef, $schema, $name, undef ) } );
+
     } else {
         croak "Autoincrementing ID is not supported on $driver_name";
     }
