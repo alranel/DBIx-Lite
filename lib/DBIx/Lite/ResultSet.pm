@@ -543,7 +543,7 @@ sub count {
         # Postgres throws an error when using ORDER BY clauses with COUNT(*)
         # create a column alias so that if SQL::Abstract::More quotes columns
         # it'll quote the column "count" rather than the expression "COUNT(*)"
-        my $count_rs = $self->select( [\'COUNT(*)', 'count' ])->order_by(undef);
+        my $count_rs = $self->select( [\'COUNT(*)', 'dbix_lite_rs_count' ])->order_by(undef);
         my ($sth, @bind) = $count_rs->select_sth;
         $sth->execute(@bind);
         $count = +($sth->fetchrow_array)[0];
