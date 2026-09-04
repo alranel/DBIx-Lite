@@ -273,21 +273,27 @@ sub select_sql {
         $sql =~ s/^SELECT /SELECT $distinct_sql /i;
     }
     
-    if ($self->{with}) {
-        my @with_sql = ();
-        foreach my $alias (keys %{$self->{with}}) {
-            my $def = $self->{with}{$alias};
-            
-            if (ref $$def eq 'ARRAY') {
-                my ($wsql, @wbind) = @$$def;
-                push @with_sql, sprintf "%s AS (%s)", $alias, $wsql;
-                unshift @bind, @wbind;
-            } else {
-                push @with_sql, sprintf "%s AS (%s)", $alias, $$def;
-            }
+    return $self->_apply_with($sql, @bind);
+}
+
+sub _apply_with {
+    my ($self, $sql, @bind) = @_;
+    
+    return ($sql, @bind) if !$self->{with};
+    
+    my @with_sql = ();
+    foreach my $alias (keys %{$self->{with}}) {
+        my $def = $self->{with}{$alias};
+        
+        if (ref $$def eq 'ARRAY') {
+            my ($wsql, @wbind) = @$$def;
+            push @with_sql, sprintf "%s AS (%s)", $alias, $wsql;
+            unshift @bind, @wbind;
+        } else {
+            push @with_sql, sprintf "%s AS (%s)", $alias, $$def;
         }
-        $sql = sprintf 'WITH %s %s', join(', ', @with_sql), $sql;
     }
+    $sql = sprintf 'WITH %s %s', join(', ', @with_sql), $sql;
     
     return ($sql, @bind);
 }
@@ -339,15 +345,18 @@ sub insert_sql {
         warn "Attempt to call ->insert() after joining other tables\n";
     }
     
+    my ($sql, @bind);
     if (!%$insert_cols && $self->{dbix_lite}->driver_name eq 'Pg') {
         # Postgres doesn't support the VALUES () syntax
-        return sprintf "INSERT INTO %s DEFAULT VALUES",
+        $sql = sprintf "INSERT INTO %s DEFAULT VALUES",
             $self->{dbix_lite}->_quote($self->{table}{name});
+    } else {
+        ($sql, @bind) = $self->{dbix_lite}->{abstract}->insert(
+            $self->{table}{name}, $insert_cols,
+        );
     }
     
-    return $self->{dbix_lite}->{abstract}->insert(
-        $self->{table}{name}, $insert_cols,
-    );
+    return $self->_apply_with($sql, @bind);
 }
 
 sub insert_sth {
@@ -397,17 +406,22 @@ sub update_sql {
             or croak "Update across relationships is not allowed with multi-column primary keys";
         
         my $fq_pk = $self->_table_alias($self->{cur_table}{name}, 'update') . "." . $pk[0];
+        # CTEs are applied on the outer UPDATE; strip them from the subquery
+        my $subquery = $self->select($pk[0]);
+        $subquery->{with} = undef;
         $update_where = {
             $fq_pk => {
-                -in => \[ $self->select($pk[0])->select_sql ],
+                -in => \[ $subquery->select_sql ],
             },
         };
     }
     
-    return $self->{dbix_lite}->{abstract}->update(
-        -table  => $self->_table_alias_expr($self->{cur_table}{name}, 'update'),
-        -set    => $update_cols,
-        -where  => $update_where,
+    return $self->_apply_with(
+        $self->{dbix_lite}->{abstract}->update(
+            -table  => $self->_table_alias_expr($self->{cur_table}{name}, 'update'),
+            -set    => $update_cols,
+            -where  => $update_where,
+        )
     );
 }
 
@@ -483,16 +497,21 @@ sub delete_sql {
             or croak "Delete across relationships is not allowed with multi-column primary keys";
         
         my $fq_pk = $self->_table_alias($self->{cur_table}{name}, 'delete') . "." . $pk[0];
+        # CTEs are applied on the outer DELETE; strip them from the subquery
+        my $subquery = $self->select($pk[0]);
+        $subquery->{with} = undef;
         $delete_where = {
             $fq_pk => {
-                -in => \[ $self->select($pk[0])->select_sql ],
+                -in => \[ $subquery->select_sql ],
             },
         };
     }
     
-    return $self->{dbix_lite}->{abstract}->delete(
-        -from => $self->_table_alias_expr($self->{cur_table}{name}, 'delete'),
-        -where => $delete_where,
+    return $self->_apply_with(
+        $self->{dbix_lite}->{abstract}->delete(
+            -from => $self->_table_alias_expr($self->{cur_table}{name}, 'delete'),
+            -where => $delete_where,
+        )
     );
 }
 
@@ -659,8 +678,8 @@ sub _table_alias {
     
     if ($table_name eq $self->{table}{name}) {
         if ($op eq 'select'
-            || ($op eq 'update' && $driver_name =~ /^(?:MySQL|Pg)$/i)
-            || ($op eq 'delete' && $driver_name =~ /^Pg$/i)) {
+            || ($op eq 'update' && ($driver_name // '') =~ /^(?:MySQL|Pg)$/i)
+            || ($op eq 'delete' && ($driver_name // '') =~ /^Pg$/i)) {
             return $self->{table_alias};
         }
     }
@@ -950,7 +969,8 @@ but with no joins.
 =head2 with
 
 This method accepts a hash of CTE definitions supported by PostgreSQL and other
-RDBMS. Definitions can be supplied as scalar refs or refs to arrayrefs:
+RDBMS. Definitions can be supplied as scalar refs or refs to arrayrefs.
+CTEs are prepended to C<SELECT>, C<INSERT>, C<UPDATE> and C<DELETE> statements.
 
     my $authors = $dbix->table('authors')->with(
         t  => \"SELECT * FROM foo",
@@ -965,6 +985,12 @@ RDBMS. Definitions can be supplied as scalar refs or refs to arrayrefs:
     
     my $authors = $dbix->table('authors')
         ->with(t => \[ $dbix->table('foo')->select_sql ]);
+    
+    my ($sql, @bind) = $dbix->table('authors')
+        ->with(t => \"SELECT 1 AS id, 'Larry' AS name")
+        ->insert_sql({ id => 1, name => 'Larry' });
+    # WITH t AS (SELECT 1 AS id, 'Larry' AS name)
+    # INSERT INTO authors (id, name) VALUES (?, ?)
 
 Subsequent calls to this method will replace the entire with block.
 

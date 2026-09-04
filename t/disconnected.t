@@ -3,7 +3,7 @@
  use strict;
  use warnings;
 
- use Test::More tests => 7;
+ use Test::More tests => 14;
  use DBIx::Lite;
 
  my $dbix = DBIx::Lite->new(driver_name => 'Pg');
@@ -40,6 +40,43 @@
 {
     my ($sql) = $dbix->table('authors')->table_alias('target')->select('id')->select_sql;
     is $sql, 'SELECT target.id FROM authors AS target', 'custom table alias';
+}
+
+{
+    my ($sql) = $dbix->table('authors')
+        ->with(t => \"SELECT 1 AS id")
+        ->select('id')
+        ->select_sql;
+    is $sql, 'WITH t AS (SELECT 1 AS id) SELECT me.id FROM authors AS me', 'select with CTE';
+}
+
+{
+    my ($sql, @bind) = $dbix->table('authors')
+        ->with(t => \"SELECT 1 AS id, 'Larry' AS name")
+        ->insert_sql({ id => 1, name => 'Larry' });
+    is $sql, q{WITH t AS (SELECT 1 AS id, 'Larry' AS name) INSERT INTO authors ( id, name) VALUES ( ?, ? )},
+        'insert with CTE';
+    is_deeply \@bind, [1, 'Larry'], 'insert with CTE bind values';
+}
+
+{
+    my ($sql, @bind) = $dbix->table('authors')
+        ->with(t => \"SELECT 1 AS id")
+        ->search({ id => 1 })
+        ->update_sql({ name => 'Larry' });
+    is $sql, 'WITH t AS (SELECT 1 AS id) UPDATE authors SET name = ? WHERE ( id = ? )',
+        'update with CTE';
+    is_deeply \@bind, ['Larry', 1], 'update with CTE bind values';
+}
+
+{
+    my ($sql, @bind) = $dbix->table('authors')
+        ->with(t => \"SELECT 1 AS id")
+        ->search({ id => 1 })
+        ->delete_sql;
+    is $sql, 'WITH t AS (SELECT 1 AS id) DELETE FROM authors WHERE ( id = ? )',
+        'delete with CTE';
+    is_deeply \@bind, [1], 'delete with CTE bind values';
 }
 
  __END__
