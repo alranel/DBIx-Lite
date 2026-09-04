@@ -91,7 +91,7 @@ sub dbh_do {
     if ($self->{connector}) {
         return $self->{connector}->run($code);
     } else {
-        $_ = $self->dbh;
+        local $_ = $self->dbh;
         return $code->();
     }
 }
