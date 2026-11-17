@@ -3,7 +3,7 @@
  use strict;
  use warnings;
 
- use Test::More tests => 21;
+ use Test::More tests => 23;
  use DBIx::Lite;
 
  my $dbix = DBIx::Lite->new(driver_name => 'Pg');
@@ -56,6 +56,25 @@
     unlike $warnings, qr/Unescaped left brace/,
         'join with brace-containing table name does not warn';
     like $sql, qr/unnest\(CASE/, 'select_sql still emits the expression table';
+}
+
+{
+    # ARRAY[NULL]::integer[] embeds '[' / ']' — without quotemeta this is a
+    # hard "Unmatched [" regex error (worse than the brace warning).
+    my $err;
+    my $table = q{unnest(CASE WHEN cardinality(me.arr) > 0 THEN me.arr ELSE ARRAY[NULL]::integer[] END)};
+    my ($sql) = eval {
+        $dbix->table($table)
+            ->table_alias('_conn_id')
+            ->left_join(['other' => 'o'], { '_conn_id' => 'o.id' })
+            ->select(\'1')
+            ->select_sql;
+    };
+    $err = $@;
+    is $err, '', 'join with ARRAY[NULL]::integer[] table name does not die'
+        or diag $err;
+    like $sql // '', qr/ARRAY\[NULL\]::integer\[\]/,
+        'select_sql still emits ARRAY[NULL] table expr';
 }
 
 {
