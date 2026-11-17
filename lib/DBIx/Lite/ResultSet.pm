@@ -211,7 +211,9 @@ sub select_sql {
             
             # in case user supplied the table name as table alias, replace it
             # with the proper one (such as "me.")
-            $col1 =~ s/^$join->{cur_table}{name}\./$left_table_prefix./;
+            # quotemeta: table names may be SQL exprs (e.g. unnest(... '{null}' ...))
+            my $cur_name = quotemeta($join->{cur_table}{name});
+            $col1 =~ s/^$cur_name\./$left_table_prefix./;
             
             # prepend table alias to the column of the second table
             $col2 = ($table_alias || $self->{dbix_lite}->_quote($table_name)) . ".$col2"
